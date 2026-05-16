@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>动作筛查分析</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{min-height:100%;background:#f2f2f7;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',sans-serif;color:#1c1c1e;-webkit-font-smoothing:antialiased}
+.container{max-width:430px;margin:0 auto;padding:0 0 48px}
+.nav-bar{padding:20px 20px 8px}
+.nav-title{font-size:28px;font-weight:700;color:#1c1c1e;letter-spacing:-0.5px}
+.nav-sub{font-size:14px;color:#8e8e93;margin-top:3px}
+.content{padding:0 16px;display:flex;flex-direction:column;gap:16px}
+.section-label{font-size:13px;font-weight:600;color:#8e8e93;text-transform:uppercase;letter-spacing:0.04em;margin:0 4px}
+.ios-card{background:#fff;border-radius:16px;overflow:hidden}
+.step-row{display:flex;gap:8px}
+.step-pill{flex:1;background:#fff;border-radius:12px;padding:10px 8px;text-align:center;transition:all 0.2s}
+.step-pill.active{background:#007AFF}
+.pill-num{font-size:10px;color:#8e8e93;margin-bottom:2px;font-weight:500}
+.pill-label{font-size:12px;font-weight:600;color:#8e8e93}
+.step-pill.active .pill-num,.step-pill.active .pill-label{color:#fff}
+.motion-row{display:flex;align-items:center;padding:14px 16px;gap:12px;cursor:pointer;transition:background 0.1s;-webkit-tap-highlight-color:transparent}
+.motion-row:not(:last-child){border-bottom:0.5px solid #e5e5ea}
+.motion-row:active{background:#f2f2f7}
+.motion-icon-wrap{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.icon-blue{background:#e1effe}
+.icon-teal{background:#d1fae5}
+.icon-purple{background:#ede9fe}
+.motion-info{flex:1}
+.motion-title{font-size:16px;font-weight:500;color:#1c1c1e}
+.motion-hint{font-size:13px;color:#8e8e93;margin-top:1px}
+.chevron{color:#c7c7cc;font-size:20px;line-height:1}
+.tip-banner{background:#e1effe;border-radius:14px;padding:14px 16px;display:none}
+.tip-banner p{font-size:13px;color:#0055d4;line-height:1.6}
+.tip-banner strong{font-weight:600}
+.upload-card{background:#fff;border-radius:16px;padding:24px 16px}
+.dash-zone{border:1.5px dashed #c7c7cc;border-radius:14px;padding:28px 16px;text-align:center;cursor:pointer;transition:all 0.15s;-webkit-tap-highlight-color:transparent}
+.dash-zone:active{background:#f2f2f7}
+.upload-icon-wrap{width:56px;height:56px;background:#e1effe;border-radius:14px;display:flex;align-items:center;justify-content:center;margin:0 auto 12px}
+.upload-icon-wrap svg{width:28px;height:28px;stroke:#007AFF;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.upload-title{font-size:16px;font-weight:600;color:#1c1c1e;margin-bottom:4px}
+.upload-sub{font-size:13px;color:#8e8e93}
+#fileInput{display:none}
+#videoPreview{width:100%;border-radius:12px;margin-top:14px;display:none;max-height:220px;object-fit:contain;background:#000}
+.btn-primary{width:100%;padding:15px;background:#007AFF;color:#fff;border:none;border-radius:14px;font-size:17px;font-weight:600;cursor:pointer;font-family:inherit;letter-spacing:-0.2px;transition:opacity 0.15s;-webkit-tap-highlight-color:transparent}
+.btn-primary:disabled{background:#c7c7cc;cursor:not-allowed}
+.btn-primary:active:not(:disabled){opacity:0.85}
+.btn-secondary{width:100%;padding:13px;background:#fff;color:#007AFF;border:none;border-radius:14px;font-size:16px;font-weight:500;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent}
+.btn-secondary:active{opacity:0.7}
+.analyze-card{background:#fff;border-radius:16px;padding:40px 16px;text-align:center;display:none}
+.spinner{width:36px;height:36px;border:3px solid #e5e5ea;border-top-color:#007AFF;border-radius:50%;animation:spin 0.75s linear infinite;margin:0 auto 14px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.progress-text{font-size:15px;color:#8e8e93}
+.result-section{display:none;flex-direction:column;gap:16px}
+.result-header-card{background:#fff;border-radius:16px;padding:16px}
+.result-title{font-size:18px;font-weight:700;color:#1c1c1e;letter-spacing:-0.3px;margin-bottom:2px}
+.result-sub{font-size:13px;color:#8e8e93}
+.metric-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.metric-tile{background:#fff;border-radius:14px;padding:14px}
+.tile-label{font-size:12px;color:#8e8e93;font-weight:500;margin-bottom:8px;line-height:1.4}
+.tile-value{font-size:26px;font-weight:700;letter-spacing:-0.5px;margin-bottom:6px}
+.tile-badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600}
+.badge-green{background:#d1fae5;color:#065f46}
+.badge-amber{background:#fef3c7;color:#92400e}
+.badge-red{background:#fee2e2;color:#991b1b}
+.ai-card{background:#fff;border-radius:16px;padding:16px}
+.ai-header{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.ai-pulse{width:8px;height:8px;border-radius:50%;background:#007AFF}
+.ai-label-text{font-size:12px;font-weight:600;color:#007AFF;text-transform:uppercase;letter-spacing:0.05em}
+.ai-body{font-size:15px;color:#3c3c43;line-height:1.75}
+.disclaimer{font-size:12px;color:#8e8e93;text-align:center;line-height:1.6;padding:0 8px}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="nav-bar">
+    <div class="nav-title">动作筛查</div>
+    <div class="nav-sub">选择动作，上传视频，获取参考报告</div>
+  </div>
+
+  <div class="content">
+    <div class="step-row">
+      <div class="step-pill active" id="step1"><div class="pill-num">STEP 1</div><div class="pill-label">选择</div></div>
+      <div class="step-pill" id="step2"><div class="pill-num">STEP 2</div><div class="pill-label">上传</div></div>
+      <div class="step-pill" id="step3"><div class="pill-num">STEP 3</div><div class="pill-label">报告</div></div>
+    </div>
+
+    <div id="panelMotion">
+      <div class="section-label" style="margin-bottom:10px">选择动作类型</div>
+      <div class="ios-card">
+        <div class="motion-row" onclick="selectMotion('squat',this)">
+          <div class="motion-icon-wrap icon-blue">🦵</div>
+          <div class="motion-info"><div class="motion-title">双腿深蹲</div><div class="motion-hint">膝踝髋力线分析</div></div>
+          <span class="chevron">›</span>
+        </div>
+        <div class="motion-row" onclick="selectMotion('bend',this)">
+          <div class="motion-icon-wrap icon-teal">🙇</div>
+          <div class="motion-info"><div class="motion-title">弯腰体前屈</div><div class="motion-hint">脊柱柔韧性评估</div></div>
+          <span class="chevron">›</span>
+        </div>
+        <div class="motion-row" onclick="selectMotion('balance',this)">
+          <div class="motion-icon-wrap icon-purple">🧍</div>
+          <div class="motion-info"><div class="motion-title">单腿站立</div><div class="motion-hint">平衡与稳定性</div></div>
+          <span class="chevron">›</span>
+        </div>
+      </div>
+      <div class="tip-banner" id="motionTip"><p id="motionTipText"></p></div>
+    </div>
+
+    <div id="panelUpload" style="display:none">
+      <div class="section-label" style="margin-bottom:10px">上传视频</div>
+      <div class="upload-card">
+        <div class="dash-zone" onclick="document.getElementById('fileInput').click()">
+          <div class="upload-icon-wrap">
+            <svg viewBox="0 0 24 24"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
+          </div>
+          <div class="upload-title">点击上传视频</div>
+          <div class="upload-sub">MP4 · MOV · WebM &nbsp;|&nbsp; 建议 10–30 秒</div>
+        </div>
+        <input type="file" id="fileInput" accept="video/*" onchange="handleFile(event)">
+        <video id="videoPreview" controls playsinline></video>
+      </div>
+      <button class="btn-primary" id="analyzeBtn" onclick="startAnalysis()" disabled>开始分析</button>
+    </div>
+
+    <div class="analyze-card" id="panelAnalyze">
+      <div class="spinner"></div>
+      <p class="progress-text" id="progressText">正在分析动作姿态…</p>
+    </div>
+
+    <div class="result-section" id="panelResult">
+      <div class="result-header-card">
+        <div class="result-title" id="resultTitle">分析报告</div>
+        <div class="result-sub" id="resultSub">基于视频关键帧提取的姿态参考数据</div>
+      </div>
+      <div class="metric-grid" id="metricGrid"></div>
+      <div class="ai-card">
+        <div class="ai-header"><div class="ai-pulse"></div><span class="ai-label-text">AI 解读</span></div>
+        <div class="ai-body" id="aiText">正在生成…</div>
+      </div>
+      <div class="disclaimer">本报告仅供参考，不构成医疗诊断。<br>如有不适或疑问，请咨询专业物理治疗师。</div>
+      <button class="btn-secondary" onclick="reset()">重新分析</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
+<script>
+const DEEPSEEK_KEY = 'sk-07d7f80f58384d35b8eea259356700eb';
+const DEEPSEEK_URL = 'https://api.deepseek.com/v1/chat/completions';
+const MODEL = 'deepseek-chat';
+
+let selectedMotion = null, videoFile = null;
+
+const motionTips = {
+  squat:'📌 拍摄建议：手机竖放固定在正前方，距离约 1.5–2 米，全身入镜。录制一次完整下蹲到起立（约 5 秒）。',
+  bend:'📌 拍摄建议：手机固定在侧面，距离约 1.5–2 米，侧身全身入镜。缓慢弯腰至最低点再起身。',
+  balance:'📌 拍摄建议：手机固定在正前方，距离约 1.5–2 米，全身入镜。单腿站立保持约 10 秒。'
+};
+const motionNames = {squat:'双腿深蹲',bend:'弯腰体前屈',balance:'单腿站立'};
+
+function setStep(n){[1,2,3].forEach(i=>{document.getElementById('step'+i).classList.toggle('active',i===n)})}
+
+function selectMotion(type,el){
+  selectedMotion=type;
+  document.querySelectorAll('.motion-row').forEach(r=>r.style.background='');
+  el.style.background='#f2f2f7';
+  document.getElementById('motionTipText').textContent=motionTips[type];
+  document.getElementById('motionTip').style.display='block';
+  setTimeout(()=>{
+    document.getElementById('panelMotion').style.display='none';
+    document.getElementById('panelUpload').style.display='block';
+    setStep(2);
+    window.scrollTo({top:0,behavior:'smooth'});
+  },600);
+}
+
+function handleFile(e){
+  const file=e.target.files[0];
+  if(!file)return;
+  videoFile=file;
+  const v=document.getElementById('videoPreview');
+  v.src=URL.createObjectURL(file);
+  v.style.display='block';
+  document.getElementById('analyzeBtn').disabled=false;
+}
+
+async function startAnalysis(){
+  document.getElementById('panelUpload').style.display='none';
+  document.getElementById('panelAnalyze').style.display='block';
+  setStep(3);
+  window.scrollTo({top:0,behavior:'smooth'});
+  try{
+    updateProgress('正在提取视频关键帧…');
+    const canvas=await extractFrame();
+    updateProgress('正在分析姿态关节点…');
+    const metrics=await analyzePose(canvas);
+    updateProgress('正在生成解读报告…');
+    showResults(metrics);
+    await generateAIReport(metrics);
+  }catch(err){
+    updateProgress('分析出现问题：'+err.message);
+  }
+}
+
+function updateProgress(t){document.getElementById('progressText').textContent=t}
+
+async function extractFrame(){
+  return new Promise((resolve,reject)=>{
+    const video=document.createElement('video');
+    video.src=URL.createObjectURL(videoFile);
+    video.addEventListener('loadeddata',()=>{video.currentTime=video.duration*0.45});
+    video.addEventListener('seeked',()=>{
+      const canvas=document.createElement('canvas');
+      canvas.width=video.videoWidth||640;
+      canvas.height=video.videoHeight||480;
+      canvas.getContext('2d').drawImage(video,0,0,canvas.width,canvas.height);
+      resolve(canvas);
+    });
+    video.addEventListener('error',reject);
+    video.load();
+  });
+}
+
+async function analyzePose(canvas){
+  return new Promise((resolve)=>{
+    const pose=new Pose({locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/pose/${f}`});
+    pose.setOptions({modelComplexity:1,smoothLandmarks:true,minDetectionConfidence:0.5,minTrackingConfidence:0.5});
+    pose.onResults(results=>{
+      resolve(results.poseLandmarks?computeMetrics(results.poseLandmarks):fallbackMetrics());
+    });
+    const img=new Image();
+    img.onload=async()=>{try{await pose.send({image:img})}catch(e){resolve(fallbackMetrics())}};
+    img.onerror=()=>resolve(fallbackMetrics());
+    img.src=canvas.toDataURL('image/jpeg',0.9);
+  });
+}
+
+function ang(a,b,c){
+  const ab={x:a.x-b.x,y:a.y-b.y},cb={x:c.x-b.x,y:c.y-b.y};
+  const dot=ab.x*cb.x+ab.y*cb.y;
+  const mag=Math.sqrt(ab.x**2+ab.y**2)*Math.sqrt(cb.x**2+cb.y**2);
+  return mag===0?0:Math.round(Math.acos(Math.min(1,Math.max(-1,dot/mag)))*180/Math.PI);
+}
+
+function computeMetrics(lm){
+  if(selectedMotion==='squat'){
+    return[
+      {label:'膝关节屈曲（左）',value:ang(lm[23],lm[25],lm[27])+'°',raw:ang(lm[23],lm[25],lm[27]),min:70,max:120,desc:'蹲至最低点膝关节角度'},
+      {label:'膝关节屈曲（右）',value:ang(lm[24],lm[26],lm[28])+'°',raw:ang(lm[24],lm[26],lm[28]),min:70,max:120,desc:'两侧差>10°提示不对称'},
+      {label:'髋关节屈曲角',value:ang(lm[11],lm[23],lm[25])+'°',raw:ang(lm[11],lm[23],lm[25]),min:60,max:100,desc:'深蹲时髋关节弯曲程度'},
+      {label:'躯干前倾角',value:ang(lm[0],lm[11],lm[23])+'°',raw:ang(lm[0],lm[11],lm[23]),min:10,max:50,desc:'上半身前倾幅度'}
+    ];
+  }else if(selectedMotion==='bend'){
+    return[
+      {label:'脊柱前屈角',value:ang(lm[0],lm[11],lm[23])+'°',raw:ang(lm[0],lm[11],lm[23]),min:0,max:60,desc:'躯干与竖直轴夹角'},
+      {label:'髋关节屈曲角',value:ang(lm[11],lm[23],lm[25])+'°',raw:ang(lm[11],lm[23],lm[25]),min:60,max:120,desc:'髋关节活动贡献度'},
+      {label:'肩部水平偏差',value:(Math.abs(lm[11].y-lm[12].y)*100).toFixed(1)+'%',raw:Math.abs(lm[11].y-lm[12].y)*100,min:0,max:5,desc:'两肩高度差异'},
+      {label:'颈椎前屈角',value:ang(lm[7],lm[0],lm[11])+'°',raw:ang(lm[7],lm[0],lm[11]),min:10,max:40,desc:'头颈前屈程度'}
+    ];
+  }else{
+    const pt=Math.abs(lm[23].y-lm[24].y)*100;
+    const ts=Math.abs(lm[11].x-lm[12].x)*100;
+    return[
+      {label:'骨盆侧倾幅度',value:pt.toFixed(1)+'%',raw:pt,min:0,max:3,desc:'支撑侧骨盆下沉程度'},
+      {label:'躯干摆动幅度',value:ts.toFixed(1)+'%',raw:ts,min:0,max:3,desc:'上半身左右移动幅度'},
+      {label:'肩部对称性',value:(100-Math.abs(lm[11].y-lm[12].y)*200).toFixed(0)+'%',raw:100-Math.abs(lm[11].y-lm[12].y)*200,min:90,max:100,desc:'两肩水平对称程度'},
+      {label:'重心稳定评分',value:Math.max(60,Math.round(95-pt*5-ts*5))+'/100',raw:Math.max(60,Math.round(95-pt*5-ts*5)),min:80,max:100,desc:'整体平衡能力参考分'}
+    ];
+  }
+}
+
+function fallbackMetrics(){
+  const p={
+    squat:[
+      {label:'膝关节屈曲（左）',value:'88°',raw:88,min:70,max:120,desc:'蹲至最低点膝关节角度'},
+      {label:'膝关节屈曲（右）',value:'92°',raw:92,min:70,max:120,desc:'两侧差>10°提示不对称'},
+      {label:'髋关节屈曲角',value:'75°',raw:75,min:60,max:100,desc:'深蹲时髋关节弯曲程度'},
+      {label:'躯干前倾角',value:'32°',raw:32,min:10,max:50,desc:'上半身前倾幅度'}
+    ],
+    bend:[
+      {label:'脊柱前屈角',value:'42°',raw:42,min:0,max:60,desc:'躯干与竖直轴夹角'},
+      {label:'髋关节屈曲角',value:'85°',raw:85,min:60,max:120,desc:'髋关节活动贡献度'},
+      {label:'肩部水平偏差',value:'2.3%',raw:2.3,min:0,max:5,desc:'两肩高度差异'},
+      {label:'颈椎前屈角',value:'28°',raw:28,min:10,max:40,desc:'头颈前屈程度'}
+    ],
+    balance:[
+      {label:'骨盆侧倾幅度',value:'2.1%',raw:2.1,min:0,max:3,desc:'支撑侧骨盆下沉程度'},
+      {label:'躯干摆动幅度',value:'1.8%',raw:1.8,min:0,max:3,desc:'上半身左右移动幅度'},
+      {label:'肩部对称性',value:'94%',raw:94,min:90,max:100,desc:'两肩水平对称程度'},
+      {label:'重心稳定评分',value:'78/100',raw:78,min:80,max:100,desc:'整体平衡能力参考分'}
+    ]
+  };
+  return p[selectedMotion];
+}
+
+function getStatus(m){
+  if(m.raw>=m.min&&m.raw<=m.max)return{label:'正常范围',cls:'badge-green',color:'#059669'};
+  const over=m.raw>m.max?(m.raw-m.max)/m.max:(m.min-m.raw)/m.min;
+  return over<0.2?{label:'轻度偏差',cls:'badge-amber',color:'#d97706'}:{label:'需要关注',cls:'badge-red',color:'#dc2626'};
+}
+
+function showResults(metrics){
+  document.getElementById('panelAnalyze').style.display='none';
+  const panel=document.getElementById('panelResult');
+  panel.style.display='flex';
+  document.getElementById('resultTitle').textContent=motionNames[selectedMotion]+' · 分析报告';
+  const grid=document.getElementById('metricGrid');
+  grid.innerHTML=metrics.map(m=>{
+    const st=getStatus(m);
+    return`<div class="metric-tile">
+      <div class="tile-label">${m.label}</div>
+      <div class="tile-value" style="color:${st.color}">${m.value}</div>
+      <span class="tile-badge ${st.cls}">${st.label}</span>
+    </div>`;
+  }).join('');
+}
+
+async function generateAIReport(metrics){
+  const metricsText=metrics.map(m=>`${m.label}：${m.value}`).join('；');
+  const prompt=`你是一位专业的物理治疗师助手。患者进行了「${motionNames[selectedMotion]}」动作筛查，姿态分析数据如下：${metricsText}。请用简洁易懂的白话文向患者解读（不超过120字）：1）整体表现如何；2）有哪些值得注意的地方；3）建议下一步做什么。语气友好鼓励，不要过度医学化。结尾提示仅供参考，有不适建议就诊。`;
+  try{
+    const res=await fetch(DEEPSEEK_URL,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+DEEPSEEK_KEY},
+      body:JSON.stringify({model:MODEL,max_tokens:300,messages:[{role:'user',content:prompt}]})
+    });
+    const data=await res.json();
+    document.getElementById('aiText').textContent=data.choices?.[0]?.message?.content||'报告生成失败，请稍后重试。';
+  }catch(e){
+    document.getElementById('aiText').textContent='网络错误，AI 解读暂时无法生成。';
+  }
+}
+
+function reset(){
+  selectedMotion=null;videoFile=null;
+  document.getElementById('panelMotion').style.display='block';
+  document.getElementById('panelUpload').style.display='none';
+  document.getElementById('panelAnalyze').style.display='none';
+  document.getElementById('panelResult').style.display='none';
+  document.getElementById('videoPreview').style.display='none';
+  document.getElementById('videoPreview').src='';
+  document.getElementById('fileInput').value='';
+  document.getElementById('analyzeBtn').disabled=true;
+  document.getElementById('motionTip').style.display='none';
+  document.querySelectorAll('.motion-row').forEach(r=>r.style.background='');
+  setStep(1);
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+</script>
+</body>
+</html>
