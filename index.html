@@ -5,9 +5,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>深蹲姿态智能评估系统</title>
 
-<!-- MediaPipe -->
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/pose.js" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+<!-- MediaPipe — 使用 unpkg 源，兼容新版 Chrome -->
+<script src="https://unpkg.com/@mediapipe/pose@0.5.1675469404/pose.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@mediapipe/drawing_utils@0.3.1620248257/drawing_utils.js" crossorigin="anonymous"></script>
+<!-- 备用：若 unpkg 加载失败自动切换到 jsDelivr -->
+<script>
+if (typeof Pose === 'undefined') {
+  document.write('<script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/pose.js" crossorigin="anonymous"><\/script>');
+}
+if (typeof drawConnectors === 'undefined') {
+  document.write('<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3.1620248257/drawing_utils.js" crossorigin="anonymous"><\/script>');
+}
+</script>
 
 <!-- Fonts -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -767,7 +776,7 @@ async function runAll() {
 async function initPose() {
   if (poseModel) return;
   poseModel = new Pose({
-    locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/${f}`
+    locateFile: f => `https://unpkg.com/@mediapipe/pose@0.5.1675469404/${f}`
   });
   poseModel.setOptions({
     modelComplexity: 1,
@@ -776,13 +785,19 @@ async function initPose() {
     minDetectionConfidence: 0.5,
     minTrackingConfidence: 0.5
   });
-  // Warm up
-  await new Promise((res, rej) => {
-    poseModel.onResults(res);
+  // 初始化：发送一帧空白图像触发模型加载，等待其完成
+  await new Promise((resolve) => {
+    let done = false;
+    const finish = () => { if (!done) { done = true; resolve(); } };
+    poseModel.onResults(finish);
     const c = document.createElement('canvas');
-    c.width = c.height = 64;
-    poseModel.send({ image: c }).catch(rej);
-    setTimeout(res, 3000); // fallback
+    c.width = c.height = 128;
+    const ctx2 = c.getContext('2d');
+    ctx2.fillStyle = '#888';
+    ctx2.fillRect(0, 0, 128, 128);
+    poseModel.send({ image: c }).then(finish).catch(finish);
+    // 最多等 8 秒，超时也继续（模型可能已加载但没触发回调）
+    setTimeout(finish, 8000);
   });
 }
 
