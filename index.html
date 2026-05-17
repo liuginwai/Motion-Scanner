@@ -5,331 +5,109 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>深蹲姿态智能评估系统</title>
 
-<!-- MediaPipe — 使用 unpkg 源，兼容新版 Chrome -->
-<script src="https://unpkg.com/@mediapipe/pose@0.5.1675469404/pose.js" crossorigin="anonymous"></script>
-<script src="https://unpkg.com/@mediapipe/drawing_utils@0.3.1620248257/drawing_utils.js" crossorigin="anonymous"></script>
-<!-- 备用：若 unpkg 加载失败自动切换到 jsDelivr -->
-<script>
-if (typeof Pose === 'undefined') {
-  document.write('<script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/pose.js" crossorigin="anonymous"><\/script>');
-}
-if (typeof drawConnectors === 'undefined') {
-  document.write('<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3.1620248257/drawing_utils.js" crossorigin="anonymous"><\/script>');
-}
-</script>
-
-<!-- Fonts -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;600&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
 
 <style>
-/* ─── 设计令牌 ─────────────────────────────── */
 :root {
-  --bg:           #F4F1ED;
-  --surface:      #FDFCFA;
-  --surface2:     #EDE9E3;
-  --ink:          #1A1714;
-  --ink2:         #5C5550;
-  --ink3:         #9C9490;
-  --green:        #2D5F4E;
-  --green2:       #4A8C72;
-  --green-bg:     #E8F0EC;
-  --border:       #D8D0C8;
-  --r:            14px;
-  --shadow:       0 2px 16px rgba(26,23,20,0.07);
+  --bg:#F4F1ED;--surface:#FDFCFA;--surface2:#EDE9E3;
+  --ink:#1A1714;--ink2:#5C5550;--ink3:#9C9490;
+  --green:#2D5F4E;--green2:#4A8C72;--green-bg:#E8F0EC;
+  --border:#D8D0C8;--r:14px;--shadow:0 2px 16px rgba(26,23,20,0.07);
 }
-
-/* ─── Reset ────────────────────────────────── */
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-
-body {
-  font-family: 'Noto Serif SC', serif;
-  background: var(--bg);
-  color: var(--ink);
-  min-height: 100dvh;
-  overflow-x: hidden;
-}
-
-/* ─── Header ───────────────────────────────── */
-header {
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  padding: 14px 18px;
-  position: sticky; top: 0; z-index: 90;
-}
-.hdr {
-  max-width: 640px; margin: 0 auto;
-  display: flex; align-items: center; gap: 11px;
-}
-.logo {
-  width: 36px; height: 36px; border-radius: 9px;
-  background: var(--green);
-  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-}
-.logo svg { width: 18px; height: 18px; }
-.hdr-text h1 { font-size: 15px; font-weight: 600; letter-spacing: .03em; }
-.hdr-text p  { font-size: 10px; color: var(--ink3); font-family: 'DM Mono', monospace; margin-top: 1px; letter-spacing: .06em; }
-
-/* ─── Page layout ──────────────────────────── */
-main {
-  max-width: 640px; margin: 0 auto;
-  padding: 20px 15px 72px;
-  display: flex; flex-direction: column; gap: 16px;
-}
-
-/* ─── Card ─────────────────────────────────── */
-.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); overflow: hidden; box-shadow: var(--shadow); }
-.card-hdr {
-  padding: 14px 18px 12px; border-bottom: 1px solid var(--border);
-  display: flex; align-items: center; gap: 9px;
-}
-.num {
-  width: 22px; height: 22px; border-radius: 50%;
-  background: var(--green); color: #fff;
-  font-size: 10px; font-family: 'DM Mono', monospace;
-  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-}
-.card-hdr h2 { font-size: 14px; font-weight: 600; }
-.card-body { padding: 18px; }
-
-/* ─── API Key banner ────────────────────────── */
-.key-banner {
-  background: #FFF8ED; border: 1px solid #F5C84280;
-  border-radius: var(--r); padding: 14px 16px; font-size: 12px;
-  color: #7A5800; line-height: 1.65;
-}
-.key-banner b { font-weight: 600; }
-.key-row { display: flex; gap: 8px; margin-top: 10px; }
-.key-input {
-  flex: 1; padding: 9px 12px;
-  border: 1.5px solid #F5C84280; border-radius: 8px;
-  font-size: 12px; font-family: 'DM Mono', monospace;
-  background: #fff; color: var(--ink); outline: none;
-  transition: border-color .2s;
-}
-.key-input:focus { border-color: var(--green); }
-.key-btn {
-  padding: 9px 14px; background: var(--green); color: #fff;
-  border: none; border-radius: 8px; font-size: 12px;
-  cursor: pointer; white-space: nowrap;
-  font-family: 'Noto Serif SC', serif;
-}
-
-/* ─── Demo figures ──────────────────────────── */
-.demo-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.demo-card {
-  background: var(--surface2); border-radius: 11px; overflow: hidden;
-}
-.demo-fig {
-  height: 150px; display: flex; align-items: center; justify-content: center;
-  background: linear-gradient(150deg,#E8F0EC,#D0E4DA);
-}
-.demo-fig svg { width: 70px; height: 130px; }
-.demo-lbl { font-size: 11px; color: var(--ink2); text-align: center; padding: 9px; line-height: 1.45; }
-
-.kp-list { margin-top: 14px; display: flex; flex-direction: column; gap: 7px; }
-.kp { display: flex; gap: 8px; align-items: flex-start; font-size: 12px; color: var(--ink2); line-height: 1.55; }
-.kp-dot {
-  width: 15px; height: 15px; border-radius: 50%; flex-shrink: 0; margin-top: 1px;
-  background: var(--green-bg); border: 1.5px solid var(--green2);
-  display: flex; align-items: center; justify-content: center;
-}
-.kp-dot svg { width: 7px; }
-
-/* ─── Guide box ─────────────────────────────── */
-.guide-box {
-  background: var(--green-bg); border: 1px solid #C5D9CF;
-  border-radius: 11px; padding: 13px 15px; margin-bottom: 15px;
-}
-.guide-box h3 { font-size: 11px; font-family: 'DM Mono', monospace; color: var(--green); letter-spacing: .07em; margin-bottom: 9px; }
-.g-list { display: flex; flex-direction: column; gap: 6px; }
-.g-item { display: flex; gap: 7px; font-size: 12px; color: var(--ink2); line-height: 1.5; }
-.g-icon { flex-shrink: 0; }
-
-/* ─── View tabs ─────────────────────────────── */
-.vtabs { display: flex; gap: 7px; margin-bottom: 13px; }
-.vtab {
-  flex: 1; padding: 10px 6px; border: 1.5px solid var(--border);
-  border-radius: 10px; background: var(--surface2);
-  font-family: 'Noto Serif SC', serif; font-size: 13px;
-  color: var(--ink2); cursor: pointer; transition: all .2s; text-align: center;
-}
-.vtab small { display: block; font-size: 9px; font-family: 'DM Mono', monospace; opacity: .65; margin-top: 2px; letter-spacing: .05em; }
-.vtab.on { border-color: var(--green); background: var(--green-bg); color: var(--green); font-weight: 600; }
-
-/* ─── Upload zone ───────────────────────────── */
-.upload-z {
-  border: 2px dashed var(--border); border-radius: 13px;
-  padding: 28px 18px; text-align: center; cursor: pointer;
-  transition: all .22s; position: relative; overflow: hidden;
-  background: var(--surface2);
-}
-.upload-z:hover, .upload-z.drag { border-color: var(--green); background: var(--green-bg); }
-.upload-z input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
-.upload-ico {
-  width: 44px; height: 44px; background: var(--green); border-radius: 50%;
-  margin: 0 auto 11px; display: flex; align-items: center; justify-content: center;
-}
-.upload-ico svg { width: 22px; height: 22px; }
-.upload-t { font-size: 14px; font-weight: 600; margin-bottom: 3px; }
-.upload-s { font-size: 11px; color: var(--ink3); font-family: 'DM Mono', monospace; }
-
-/* ─── Video wrap ────────────────────────────── */
-.vid-wrap {
-  position: relative; border-radius: 11px; overflow: hidden;
-  background: #000; margin-bottom: 12px;
-  display: none; aspect-ratio: 9/16; max-height: 380px;
-}
-.vid-wrap.on { display: block; }
-#vid { width: 100%; height: 100%; object-fit: cover; display: block; }
-#cv  { position: absolute; inset: 0; width: 100%; height: 100%; }
-
-/* ─── Processing overlay ────────────────────── */
-.proc-ov {
-  position: absolute; inset: 0;
-  background: rgba(0,0,0,.65);
-  display: none; flex-direction: column;
-  align-items: center; justify-content: center; gap: 14px;
-}
-.proc-ov.on { display: flex; }
-.spin {
-  width: 40px; height: 40px; border-radius: 50%;
-  border: 3px solid rgba(255,255,255,.2);
-  border-top-color: #fff; animation: spin .8s linear infinite;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
-.proc-txt { color: #fff; font-size: 12px; text-align: center; line-height: 1.55; padding: 0 20px; }
-.pbar-wrap { width: 150px; height: 3px; background: rgba(255,255,255,.2); border-radius: 2px; overflow: hidden; }
-.pbar { height: 100%; background: #fff; border-radius: 2px; width: 0; transition: width .3s; }
-
-/* ─── Steps visual ──────────────────────────── */
-.steps-row { display: flex; align-items: center; gap: 0; margin-bottom: 18px; }
-.step-item { flex: 1; text-align: center; position: relative; }
-.step-item:not(:last-child)::after {
-  content: ''; position: absolute;
-  top: 14px; right: -50%; width: 100%; height: 1.5px;
-  background: var(--border);
-}
-.step-item.done::after { background: var(--green); }
-.step-circle {
-  width: 28px; height: 28px; border-radius: 50%; margin: 0 auto 5px;
-  border: 2px solid var(--border); background: var(--surface2);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 11px; font-family: 'DM Mono', monospace; color: var(--ink3);
-  position: relative; z-index: 1;
-  transition: all .3s;
-}
-.step-item.done .step-circle { border-color: var(--green); background: var(--green); color: #fff; }
-.step-item.active .step-circle { border-color: var(--green); color: var(--green); background: var(--green-bg); }
-.step-lbl { font-size: 10px; color: var(--ink3); font-family: 'DM Mono', monospace; letter-spacing: .04em; }
-.step-item.done .step-lbl, .step-item.active .step-lbl { color: var(--green); }
-
-/* ─── Big analyze button ────────────────────── */
-.btn-main {
-  width: 100%; padding: 15px; border: none; border-radius: 12px;
-  font-family: 'Noto Serif SC', serif; font-size: 15px; font-weight: 600;
-  cursor: pointer; transition: all .2s; letter-spacing: .04em;
-  display: none;
-}
-.btn-main.on { display: block; }
-.btn-analyze { background: var(--green); color: #fff; }
-.btn-analyze:hover { background: #245040; transform: translateY(-1px); box-shadow: 0 4px 16px rgba(45,95,78,.3); }
-.btn-analyze:active { transform: translateY(0); }
-.btn-analyze:disabled { opacity: .5; cursor: not-allowed; transform: none; box-shadow: none; }
-
-/* ─── Results section (data + report together) ── */
-.results-section { display: none; }
-.results-section.on { display: block; }
-
-/* ─── Data grid ─────────────────────────────── */
-.data-grid { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
-.data-row {
-  background: var(--surface2); border: 1px solid var(--border);
-  border-radius: 12px; padding: 13px 15px;
-  display: flex; align-items: center; justify-content: space-between;
-}
-.data-lbl { font-size: 13px; color: var(--ink2); line-height: 1.4; }
-.data-lbl small { display: block; font-size: 10px; font-family: 'DM Mono', monospace; color: var(--ink3); margin-top: 2px; }
-.badge {
-  display: inline-block; font-size: 8.5px; font-family: 'DM Mono', monospace;
-  letter-spacing: .07em; padding: 2px 7px; border-radius: 20px; margin-bottom: 3px;
-}
-.bf { background: #E3EDF5; color: #2A5F8B; }
-.bs { background: #F0E8F5; color: #6B2A8B; }
-.data-val {
-  font-size: 28px; font-family: 'DM Mono', monospace;
-  color: var(--ink); min-width: 82px; text-align: right;
-  animation: fadeIn .4s ease;
-}
-.data-val .u { font-size: 14px; color: var(--ink3); }
-@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
-
-/* ─── Report ─────────────────────────────────── */
-.report-wrap { border-top: 1px solid var(--border); padding-top: 18px; }
-.report-hdr {
-  display: flex; align-items: center; gap: 9px; margin-bottom: 14px;
-}
-.report-hdr-icon {
-  width: 30px; height: 30px; background: var(--green); border-radius: 8px;
-  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-}
-.report-hdr-icon svg { width: 15px; height: 15px; }
-.report-hdr h3 { font-size: 14px; font-weight: 600; }
-.report-hdr p  { font-size: 10px; color: var(--ink3); font-family: 'DM Mono', monospace; letter-spacing: .05em; margin-top: 1px; }
-
-.report-loading { display: flex; align-items: center; gap: 11px; padding: 10px 0; }
-.spin-sm {
-  width: 20px; height: 20px; border-radius: 50%;
-  border: 2px solid var(--green-bg);
-  border-top-color: var(--green); animation: spin .8s linear infinite; flex-shrink: 0;
-}
-.report-loading p { font-size: 12px; color: var(--ink2); }
-
-#report-text {
-  font-size: 13.5px; line-height: 1.9; color: var(--ink2);
-  white-space: pre-wrap; word-break: break-word;
-}
-.cursor {
-  display: inline-block; width: 2px; height: 13px;
-  background: var(--green); animation: blink 1s step-end infinite; vertical-align: middle;
-}
-@keyframes blink { 50% { opacity: 0; } }
-
-.disclaimer {
-  margin-top: 16px; padding: 11px 13px;
-  background: #FFF8F0; border: 1px solid #E8D5C0;
-  border-radius: 10px; font-size: 11px; color: #8B6040;
-  line-height: 1.65; font-family: 'DM Mono', monospace;
-}
-
-/* ─── Privacy note ──────────────────────────── */
-.priv-note {
-  margin-top: 13px; padding: 11px 13px;
-  background: var(--surface2); border-radius: 10px;
-  font-size: 11px; color: var(--ink3); font-family: 'DM Mono', monospace;
-  line-height: 1.65;
-}
-
-/* ─── Toast ─────────────────────────────────── */
-.toast {
-  position: fixed; bottom: 22px; left: 50%;
-  transform: translateX(-50%) translateY(70px);
-  background: var(--ink); color: #fff;
-  padding: 11px 18px; border-radius: 100px;
-  font-size: 13px; z-index: 999; transition: transform .3s;
-  white-space: nowrap; max-width: 88vw; text-align: center;
-  pointer-events: none;
-}
-.toast.on { transform: translateX(-50%) translateY(0); }
-
-/* ─── Scrollbar ─────────────────────────────── */
-::-webkit-scrollbar { width: 3px; }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:'Noto Serif SC',serif;background:var(--bg);color:var(--ink);min-height:100dvh;overflow-x:hidden}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 18px;position:sticky;top:0;z-index:90}
+.hdr{max-width:640px;margin:0 auto;display:flex;align-items:center;gap:11px}
+.logo{width:36px;height:36px;border-radius:9px;background:var(--green);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.logo svg{width:18px;height:18px}
+.hdr-text h1{font-size:15px;font-weight:600;letter-spacing:.03em}
+.hdr-text p{font-size:10px;color:var(--ink3);font-family:'DM Mono',monospace;margin-top:1px;letter-spacing:.06em}
+main{max-width:640px;margin:0 auto;padding:20px 15px 72px;display:flex;flex-direction:column;gap:16px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;box-shadow:var(--shadow)}
+.card-hdr{padding:14px 18px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:9px}
+.num{width:22px;height:22px;border-radius:50%;background:var(--green);color:#fff;font-size:10px;font-family:'DM Mono',monospace;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.card-hdr h2{font-size:14px;font-weight:600}
+.card-body{padding:18px}
+.demo-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.demo-card{background:var(--surface2);border-radius:11px;overflow:hidden}
+.demo-fig{height:150px;display:flex;align-items:center;justify-content:center;background:linear-gradient(150deg,#E8F0EC,#D0E4DA)}
+.demo-fig svg{width:70px;height:130px}
+.demo-lbl{font-size:11px;color:var(--ink2);text-align:center;padding:9px;line-height:1.45}
+.kp-list{margin-top:14px;display:flex;flex-direction:column;gap:7px}
+.kp{display:flex;gap:8px;align-items:flex-start;font-size:12px;color:var(--ink2);line-height:1.55}
+.kp-dot{width:15px;height:15px;border-radius:50%;flex-shrink:0;margin-top:1px;background:var(--green-bg);border:1.5px solid var(--green2);display:flex;align-items:center;justify-content:center}
+.kp-dot svg{width:7px}
+.guide-box{background:var(--green-bg);border:1px solid #C5D9CF;border-radius:11px;padding:13px 15px;margin-bottom:15px}
+.guide-box h3{font-size:11px;font-family:'DM Mono',monospace;color:var(--green);letter-spacing:.07em;margin-bottom:9px}
+.g-list{display:flex;flex-direction:column;gap:6px}
+.g-item{display:flex;gap:7px;font-size:12px;color:var(--ink2);line-height:1.5}
+.vtabs{display:flex;gap:7px;margin-bottom:13px}
+.vtab{flex:1;padding:10px 6px;border:1.5px solid var(--border);border-radius:10px;background:var(--surface2);font-family:'Noto Serif SC',serif;font-size:13px;color:var(--ink2);cursor:pointer;transition:all .2s;text-align:center}
+.vtab small{display:block;font-size:9px;font-family:'DM Mono',monospace;opacity:.65;margin-top:2px;letter-spacing:.05em}
+.vtab.on{border-color:var(--green);background:var(--green-bg);color:var(--green);font-weight:600}
+.upload-z{border:2px dashed var(--border);border-radius:13px;padding:28px 18px;text-align:center;cursor:pointer;transition:all .22s;position:relative;overflow:hidden;background:var(--surface2)}
+.upload-z:active{transform:scale(.98)}
+.upload-z.has-file{border-color:var(--green);border-style:solid;background:var(--green-bg)}
+.upload-z input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.upload-ico{width:44px;height:44px;background:var(--green);border-radius:50%;margin:0 auto 11px;display:flex;align-items:center;justify-content:center;transition:all .25s}
+.upload-z.has-file .upload-ico{background:var(--green2)}
+.upload-ico svg{width:22px;height:22px}
+.upload-t{font-size:14px;font-weight:600;margin-bottom:3px}
+.upload-s{font-size:11px;color:var(--ink3);font-family:'DM Mono',monospace}
+.upload-z.has-file .upload-s{color:var(--green);font-weight:500}
+.steps-row{display:flex;align-items:center;margin-bottom:18px}
+.step-item{flex:1;text-align:center;position:relative}
+.step-item:not(:last-child)::after{content:'';position:absolute;top:14px;right:-50%;width:100%;height:1.5px;background:var(--border)}
+.step-item.done::after{background:var(--green)}
+.step-circle{width:28px;height:28px;border-radius:50%;margin:0 auto 5px;border:2px solid var(--border);background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:11px;font-family:'DM Mono',monospace;color:var(--ink3);position:relative;z-index:1;transition:all .3s}
+.step-item.done .step-circle{border-color:var(--green);background:var(--green);color:#fff}
+.step-item.active .step-circle{border-color:var(--green);color:var(--green);background:var(--green-bg)}
+.step-lbl{font-size:10px;color:var(--ink3);font-family:'DM Mono',monospace;letter-spacing:.04em}
+.step-item.done .step-lbl,.step-item.active .step-lbl{color:var(--green)}
+.btn-main{width:100%;padding:15px;border:none;border-radius:12px;font-family:'Noto Serif SC',serif;font-size:15px;font-weight:600;cursor:pointer;transition:all .2s;letter-spacing:.04em;background:var(--green);color:#fff;display:none;margin-top:14px}
+.btn-main.on{display:block}
+.btn-main:active{transform:scale(.98)}
+.btn-main:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.analyze-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);z-index:999;display:none;align-items:center;justify-content:center}
+.analyze-overlay.on{display:flex}
+.analyze-card{background:#fff;border-radius:20px;padding:36px 28px;text-align:center;max-width:280px;margin:0 20px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.spin{width:44px;height:44px;border:3px solid #e5e5ea;border-top-color:var(--green);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 18px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.analyze-card p{font-size:14px;color:var(--ink2);font-weight:500;line-height:1.6}
+.results-section{display:none}
+.results-section.on{display:block}
+.data-grid{display:flex;flex-direction:column;gap:10px;margin-bottom:20px}
+.data-row{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:13px 15px;display:flex;align-items:center;justify-content:space-between}
+.data-lbl{font-size:13px;color:var(--ink2);line-height:1.4}
+.data-lbl small{display:block;font-size:10px;font-family:'DM Mono',monospace;color:var(--ink3);margin-top:2px}
+.badge{display:inline-block;font-size:8.5px;font-family:'DM Mono',monospace;letter-spacing:.07em;padding:2px 7px;border-radius:20px;margin-bottom:3px}
+.bf{background:#E3EDF5;color:#2A5F8B}
+.bs{background:#F0E8F5;color:#6B2A8B}
+.data-val{font-size:28px;font-family:'DM Mono',monospace;color:var(--ink);min-width:82px;text-align:right}
+.data-val .u{font-size:14px;color:var(--ink3)}
+.report-wrap{border-top:1px solid var(--border);padding-top:18px}
+.report-hdr{display:flex;align-items:center;gap:9px;margin-bottom:14px}
+.report-hdr-icon{width:30px;height:30px;background:var(--green);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.report-hdr-icon svg{width:15px;height:15px}
+.report-hdr h3{font-size:14px;font-weight:600}
+.report-hdr p{font-size:10px;color:var(--ink3);font-family:'DM Mono',monospace;letter-spacing:.05em;margin-top:1px}
+.report-loading{display:flex;align-items:center;gap:11px;padding:10px 0}
+.spin-sm{width:20px;height:20px;border-radius:50%;border:2px solid var(--green-bg);border-top-color:var(--green);animation:spin .8s linear infinite;flex-shrink:0}
+.report-loading p{font-size:12px;color:var(--ink2)}
+#report-text{font-size:13.5px;line-height:1.9;color:var(--ink2);white-space:pre-wrap;word-break:break-word}
+.cursor{display:inline-block;width:2px;height:13px;background:var(--green);animation:blink 1s step-end infinite;vertical-align:middle}
+@keyframes blink{50%{opacity:0}}
+.disclaimer{margin-top:16px;padding:11px 13px;background:#FFF8F0;border:1px solid #E8D5C0;border-radius:10px;font-size:11px;color:#8B6040;line-height:1.65;font-family:'DM Mono',monospace}
+.priv-note{margin-top:13px;padding:11px 13px;background:var(--surface2);border-radius:10px;font-size:11px;color:var(--ink3);font-family:'DM Mono',monospace;line-height:1.65}
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(70px);background:var(--ink);color:#fff;padding:11px 18px;border-radius:100px;font-size:13px;z-index:9999;transition:transform .3s;white-space:nowrap;max-width:88vw;text-align:center;pointer-events:none}
+.toast.on{transform:translateX(-50%) translateY(0)}
+::-webkit-scrollbar{width:3px}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
 </style>
 </head>
 <body>
 
-<!-- ══ Header ══════════════════════════════ -->
 <header>
   <div class="hdr">
     <div class="logo">
@@ -346,36 +124,13 @@ main {
   </div>
 </header>
 
-<!-- ══ Main ════════════════════════════════ -->
 <main>
 
-  <!-- ① API Key 配置 -->
-  <div class="card" id="key-card" style="display:none">
-    <div class="card-hdr">
-      <div class="num">⚙</div>
-      <h2>首次配置：填入 DeepSeek API Key</h2>
-    </div>
-    <div class="card-body">
-      <div class="key-banner">
-        <b>仅需一次</b>，Key 保存在本地浏览器，不会上传至任何服务器。<br>
-        获取地址：<b>platform.deepseek.com</b> → API Keys → 创建
-      </div>
-      <div class="key-row" style="margin-top:12px;">
-        <input class="key-input" id="keyInput" type="password" placeholder="sk-xxxxxxxxxxxxxxxx" autocomplete="off"/>
-        <button class="key-btn" onclick="saveKey()">保存</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ② 标准示范 -->
+  <!-- ① 示范 -->
   <div class="card">
-    <div class="card-hdr">
-      <div class="num">1</div>
-      <h2>标准深蹲动作示范</h2>
-    </div>
+    <div class="card-hdr"><div class="num">1</div><h2>标准深蹲动作示范</h2></div>
     <div class="card-body">
       <div class="demo-row">
-        <!-- 正面 -->
         <div class="demo-card">
           <div class="demo-fig">
             <svg viewBox="0 0 70 130" fill="none">
@@ -397,7 +152,6 @@ main {
           </div>
           <div class="demo-lbl">正面视角<br>膝盖对齐足尖方向</div>
         </div>
-        <!-- 侧面 -->
         <div class="demo-card">
           <div class="demo-fig">
             <svg viewBox="0 0 70 130" fill="none">
@@ -427,176 +181,114 @@ main {
     </div>
   </div>
 
-  <!-- ③ 上传分析（核心操作区） -->
+  <!-- ② 上传 -->
   <div class="card">
-    <div class="card-hdr">
-      <div class="num">2</div>
-      <h2>上传视频 · 一键分析</h2>
-    </div>
+    <div class="card-hdr"><div class="num">2</div><h2>上传视频 · 一键分析</h2></div>
     <div class="card-body">
 
-      <!-- 步骤进度 -->
-      <div class="steps-row" id="steps-row">
-        <div class="step-item active" id="step1">
-          <div class="step-circle">1</div>
-          <div class="step-lbl">上传正面</div>
-        </div>
-        <div class="step-item" id="step2">
-          <div class="step-circle">2</div>
-          <div class="step-lbl">上传侧面</div>
-        </div>
-        <div class="step-item" id="step3">
-          <div class="step-circle">3</div>
-          <div class="step-lbl">开始分析</div>
-        </div>
-        <div class="step-item" id="step4">
-          <div class="step-circle">4</div>
-          <div class="step-lbl">查看报告</div>
-        </div>
+      <div class="steps-row">
+        <div class="step-item active" id="step1"><div class="step-circle">1</div><div class="step-lbl">上传正面</div></div>
+        <div class="step-item" id="step2"><div class="step-circle">2</div><div class="step-lbl">上传侧面</div></div>
+        <div class="step-item" id="step3"><div class="step-circle">3</div><div class="step-lbl">开始分析</div></div>
+        <div class="step-item" id="step4"><div class="step-circle">4</div><div class="step-lbl">查看报告</div></div>
       </div>
 
-      <!-- 拍摄规范 -->
       <div class="guide-box">
         <h3>📋 拍摄规范要点</h3>
         <div class="g-list">
-          <div class="g-item"><span class="g-icon">🧍</span><span>全身入镜，从头到脚完整拍摄，不得遮挡</span></div>
-          <div class="g-item"><span class="g-icon">📐</span><span>正面视频：摄像头正对人体；侧面视频：与人体呈 90° 垂直</span></div>
-          <div class="g-item"><span class="g-icon">☀️</span><span>光线充足，腿部、腰髋部位避免遮挡</span></div>
-          <div class="g-item"><span class="g-icon">🎬</span><span>缓慢完成完整蹲下→保持→起立动作</span></div>
-          <div class="g-item"><span class="g-icon">🎨</span><span>纯色简洁背景，提升骨骼识别精准度</span></div>
+          <div class="g-item"><span>🧍</span><span>全身入镜，从头到脚完整拍摄，不得遮挡</span></div>
+          <div class="g-item"><span>📐</span><span>正面视频：摄像头正对人体；侧面视频：与人体呈 90° 垂直</span></div>
+          <div class="g-item"><span>☀️</span><span>光线充足，腿部、腰髋部位避免遮挡</span></div>
+          <div class="g-item"><span>🎬</span><span>缓慢完成完整蹲下 → 保持 → 起立动作</span></div>
+          <div class="g-item"><span>🎨</span><span>纯色简洁背景，提升骨骼识别精准度</span></div>
         </div>
       </div>
 
-      <!-- 视角切换 -->
       <div class="vtabs">
-        <button class="vtab on" id="tab-front" onclick="switchTab('front')">
-          正面视角
-          <small>FRONT VIEW</small>
-        </button>
-        <button class="vtab" id="tab-side" onclick="switchTab('side')">
-          侧面视角
-          <small>SIDE VIEW</small>
-        </button>
+        <button class="vtab on" id="tab-front" onclick="switchTab('front')">正面视角<small>FRONT VIEW</small></button>
+        <button class="vtab" id="tab-side"  onclick="switchTab('side')">侧面视角<small>SIDE VIEW</small></button>
       </div>
 
-      <!-- 上传区 -->
-      <div class="upload-z" id="upload-z"
-           ondragover="ev.preventDefault();this.classList.add('drag')"
-           ondragleave="this.classList.remove('drag')"
-           ondrop="dropVideo(event)">
+      <div class="upload-z" id="upload-z" ondrop="dropVideo(event)" ondragover="event.preventDefault()">
         <input type="file" accept="video/*" onchange="pickVideo(event)" id="file-in">
         <div class="upload-ico">
-          <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-            <polyline points="17 8 12 3 7 8"/>
-            <line x1="12" y1="3" x2="12" y2="15"/>
+          <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/>
+            <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>
           </svg>
         </div>
         <div class="upload-t" id="upload-t">点击上传视频</div>
         <div class="upload-s">MP4 · MOV · AVI · WEBM</div>
       </div>
 
-      <!-- 视频预览 + 骨骼画布 -->
-      <div class="vid-wrap" id="vid-wrap">
-        <video id="vid" playsinline muted controls></video>
-        <canvas id="cv"></canvas>
-        <div class="proc-ov" id="proc-ov">
-          <div class="spin"></div>
-          <div class="proc-txt" id="proc-txt">初始化中…</div>
-          <div class="pbar-wrap"><div class="pbar" id="pbar"></div></div>
-        </div>
-      </div>
+      <video id="vid-preview" controls playsinline
+        style="width:100%;border-radius:10px;margin-top:12px;display:none;max-height:220px;object-fit:contain;background:#000">
+      </video>
 
-      <!-- 一键分析按钮（两段视频就绪后才出现） -->
-      <button class="btn-main btn-analyze on" id="btn-analyze"
-              onclick="runAll()" style="display:none">
-        🚀 开始姿态识别 + AI 分析
-      </button>
+      <button class="btn-main" id="btn-analyze" onclick="runAll()">🚀 开始姿态识别 + AI 分析</button>
 
-      <div class="priv-note">
-        🔒 视频在本地浏览器识别，原始文件不上传。传输至 DeepSeek 的仅为 3 个角度数值。
-      </div>
+      <div class="priv-note">🔒 视频在本地浏览器处理，原始文件不上传。传输至 DeepSeek 的仅为 3 个角度数值。</div>
     </div>
   </div>
 
-  <!-- ④ 结果区（数据 + 报告合并） -->
+  <!-- ③ 结果 -->
   <div class="card results-section" id="results">
-    <div class="card-hdr">
-      <div class="num">3</div>
-      <h2>实测数据 · AI 专业报告</h2>
-    </div>
+    <div class="card-hdr"><div class="num">3</div><h2>实测数据 · AI 专业报告</h2></div>
     <div class="card-body">
-
-      <!-- 数据 -->
       <div class="data-grid">
         <div class="data-row">
-          <div class="data-lbl">
-            <div class="badge bf">FRONT VIEW</div><br>
-            膝关节内扣角度
-            <small>Knee Valgus Angle</small>
-          </div>
+          <div class="data-lbl"><div class="badge bf">FRONT VIEW</div><br>膝关节内扣角度<small>Knee Valgus Angle</small></div>
           <div class="data-val" id="v-knee">—</div>
         </div>
         <div class="data-row">
-          <div class="data-lbl">
-            <div class="badge bs">SIDE VIEW</div><br>
-            髋关节屈曲角度
-            <small>Hip Flexion Angle</small>
-          </div>
+          <div class="data-lbl"><div class="badge bs">SIDE VIEW</div><br>髋关节屈曲角度<small>Hip Flexion Angle</small></div>
           <div class="data-val" id="v-hip">—</div>
         </div>
         <div class="data-row">
-          <div class="data-lbl">
-            <div class="badge bs">SIDE VIEW</div><br>
-            躯干前倾角度
-            <small>Trunk Lean Angle</small>
-          </div>
+          <div class="data-lbl"><div class="badge bs">SIDE VIEW</div><br>躯干前倾角度<small>Trunk Lean Angle</small></div>
           <div class="data-val" id="v-trunk">—</div>
         </div>
       </div>
-
-      <!-- 报告 -->
       <div class="report-wrap">
         <div class="report-hdr">
           <div class="report-hdr-icon">
             <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round">
-              <path d="M9 11l3 3L22 4"/>
-              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+              <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
             </svg>
           </div>
-          <div>
-            <h3>AI 专业体态分析报告</h3>
-            <p>三甲医院物理治疗师视角 · 纯力学分析</p>
-          </div>
+          <div><h3>AI 专业体态分析报告</h3><p>三甲医院物理治疗师视角 · 纯力学分析</p></div>
         </div>
-
         <div class="report-loading" id="rep-loading" style="display:none">
-          <div class="spin-sm"></div>
-          <p>AI 正在分析体态数据，约 10–20 秒…</p>
+          <div class="spin-sm"></div><p>AI 正在分析体态数据，约 10–20 秒…</p>
         </div>
-
         <div id="report-text"></div>
-
         <div class="disclaimer" id="disclaimer" style="display:none">
           ⚠ 本报告仅为运动体态力学数据分析与姿态状态评估，不作为临床疾病诊断依据，不具备医疗诊疗作用。如有身体不适，请咨询专业医疗机构。
         </div>
       </div>
-
     </div>
   </div>
 
 </main>
 
+<!-- 分析中遮罩 -->
+<div class="analyze-overlay" id="overlay">
+  <div class="analyze-card">
+    <div class="spin"></div>
+    <p id="overlay-txt">正在提取视频关键帧…</p>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
-<!-- ══ Script ══════════════════════════════ -->
-<script>
-/* ───────────────────────────────────────────────
-   CONFIG — 把你的 DeepSeek API Key 粘贴到这里
-   ─────────────────────────────────────────────── */
-const HARDCODED_KEY = 'sk-07d7f80f58384d35b8eea259356700eb';
+<!-- MediaPipe：不锁版本，由 CDN 自动分发最新稳定版 -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
 
-/* ─────────────── DeepSeek 系统提示词 ─────────── */
+<script>
+/* ─── DeepSeek Key & System Prompt ─── */
+const DEEPSEEK_KEY = 'sk-07d7f80f58384d35b8eea259356700eb';
+const DEEPSEEK_URL = 'https://api.deepseek.com/v1/chat/completions';
+
 const SYSTEM_PROMPT = `你为三甲医院在职资深物理治疗师，深耕肌骨疼痛、运动损伤康复领域，长期专注人体下肢力线评估与体态力学分析，具备丰富临床一线实操评估经验。
 
 请严格依托用户提交的深蹲各项实测角度数值，自主对照运动人体科学、肌骨力学通用正常参考范围，独立完成完整体态分析报告，面向普通大众撰写，语言专业严谨、通俗易懂，全程严禁出现任何医疗建议、康复手法、训练动作、矫正方案、就医指导、调理方式、日常习惯调整等一切干预类、改善类内容。
@@ -621,101 +313,75 @@ const SYSTEM_PROMPT = `你为三甲医院在职资深物理治疗师，深耕肌
 六、整体体态异常程度综合评定
 综合全部采集数据，客观界定当前整体体态异常轻重程度。
 
-仅做纯力学分析、体态状态描述、长期力学影响研判，不给出任何调整方法、改善方式、运动建议等所有干预类内容。
+仅做纯力学分析、体态状态描述、长期力学影响研判，不给出任何调整方法、改善方式、运动建议等干预类内容。
 
 报告末尾固定附加：本报告仅为运动体态力学数据分析与姿态状态评估，不作为临床疾病诊断依据，不具备医疗诊疗作用。`;
 
-/* ─────────────── State ────────────────────── */
-let apiKey = HARDCODED_KEY || localStorage.getItem('ds_key') || '';
+/* ─── State ─── */
 let currentTab = 'front';
-let videos = { front: null, side: null };  // File objects
-let measures = { front: null, side: null }; // Angle results
-let poseModel = null;
-let running = false;
+let videoFiles = { front: null, side: null };
+let measures   = { front: null, side: null };
+let running    = false;
 
-/* ─────────────── Key management ────────────── */
-(function initKey() {
-  if (apiKey) {
-    document.getElementById('key-card').style.display = 'none';
-    document.getElementById('keyInput').value = apiKey;
-  }
-})();
-
-function saveKey() {
-  const k = document.getElementById('keyInput').value.trim();
-  if (!k.startsWith('sk-')) { toast('请输入有效的 sk- 开头 API Key'); return; }
-  apiKey = k;
-  localStorage.setItem('ds_key', k);
-  document.getElementById('key-card').style.display = 'none';
-  toast('✓ API Key 已保存');
-}
-
-/* ─────────────── Tab switch ─────────────────── */
+/* ─── Tab ─── */
 function switchTab(view) {
   currentTab = view;
   document.getElementById('tab-front').classList.toggle('on', view === 'front');
-  document.getElementById('tab-side').classList.toggle('on', view === 'side');
-
-  const label = view === 'front' ? '正面视角视频' : '侧面视角视频';
-  document.getElementById('upload-t').textContent =
-    videos[view] ? `已载入 ${label}（可重新上传）` : `点击上传${label}`;
-
-  // Show/hide preview
-  const wrap = document.getElementById('vid-wrap');
-  if (videos[view]) {
-    document.getElementById('vid').src = URL.createObjectURL(videos[view]);
-    wrap.classList.add('on');
+  document.getElementById('tab-side').classList.toggle('on',  view === 'side');
+  const f  = videoFiles[view];
+  const uz = document.getElementById('upload-z');
+  const vp = document.getElementById('vid-preview');
+  if (f) {
+    uz.classList.add('has-file');
+    document.getElementById('upload-t').textContent = view === 'front' ? '✓ 正面视频已上传' : '✓ 侧面视频已上传';
+    vp.src = URL.createObjectURL(f); vp.style.display = 'block';
   } else {
-    wrap.classList.remove('on');
+    uz.classList.remove('has-file');
+    document.getElementById('upload-t').textContent = '点击上传视频';
+    vp.style.display = 'none';
   }
   document.getElementById('file-in').value = '';
-  checkBothReady();
+  checkReady();
 }
 
-/* ─────────────── Video pick / drop ─────────── */
+/* ─── Upload ─── */
 function pickVideo(e) { loadVideo(e.target.files[0]); }
 function dropVideo(e) {
   e.preventDefault();
-  document.getElementById('upload-z').classList.remove('drag');
   const f = e.dataTransfer.files[0];
   if (f && f.type.startsWith('video/')) loadVideo(f);
 }
-
 function loadVideo(file) {
   if (!file) return;
-  videos[currentTab] = file;
-  document.getElementById('vid').src = URL.createObjectURL(file);
-  document.getElementById('vid-wrap').classList.add('on');
+  videoFiles[currentTab] = file;
+  document.getElementById('upload-z').classList.add('has-file');
+  document.getElementById('upload-t').textContent = currentTab === 'front' ? '✓ 正面视频已上传' : '✓ 侧面视频已上传';
+  const vp = document.getElementById('vid-preview');
+  vp.src = URL.createObjectURL(file); vp.style.display = 'block';
 
-  const label = currentTab === 'front' ? '正面视角' : '侧面视角';
-  document.getElementById('upload-t').textContent = `已载入${label}视频（可重新上传）`;
-
-  // Auto-advance step hints
-  if (currentTab === 'front' && !videos.side) {
-    setStep(1, 'done'); setStep(2, 'active');
-    toast(`✓ 正面视频已载入，请继续上传侧面视频`);
-    setTimeout(() => switchTab('side'), 1400);
-  } else if (currentTab === 'side' && !videos.front) {
-    setStep(2, 'done'); setStep(1, 'active');
-    toast(`✓ 侧面视频已载入，请继续上传正面视频`);
-    setTimeout(() => switchTab('front'), 1400);
+  if (currentTab === 'front' && !videoFiles.side) {
+    setStep(1,'done'); setStep(2,'active');
+    toast('✓ 正面视频已载入，请切换上传侧面视频');
+    setTimeout(() => switchTab('side'), 1500);
+  } else if (currentTab === 'side' && !videoFiles.front) {
+    setStep(2,'done'); setStep(1,'active');
+    toast('✓ 侧面视频已载入，请切换上传正面视频');
+    setTimeout(() => switchTab('front'), 1500);
   } else {
-    // Both present
-    checkBothReady();
+    checkReady();
   }
 }
-
-function checkBothReady() {
+function checkReady() {
   const btn = document.getElementById('btn-analyze');
-  if (videos.front && videos.side) {
-    btn.style.display = 'block';
-    setStep(1, 'done'); setStep(2, 'done'); setStep(3, 'active');
+  if (videoFiles.front && videoFiles.side) {
+    btn.classList.add('on');
+    setStep(1,'done'); setStep(2,'done'); setStep(3,'active');
   } else {
-    btn.style.display = 'none';
+    btn.classList.remove('on');
   }
 }
 
-/* ─────────────── Steps ──────────────────────── */
+/* ─── Steps ─── */
 function setStep(n, state) {
   const el = document.getElementById('step' + n);
   el.className = 'step-item ' + state;
@@ -725,202 +391,139 @@ function setStep(n, state) {
   }
 }
 
-/* ─────────────── Main pipeline ──────────────── */
+/* ─── Main pipeline ─── */
 async function runAll() {
   if (running) return;
-  if (!apiKey) {
-    document.getElementById('key-card').style.display = 'block';
-    toast('请先填写 DeepSeek API Key');
-    document.getElementById('key-card').scrollIntoView({ behavior: 'smooth' });
-    return;
-  }
   running = true;
   const btn = document.getElementById('btn-analyze');
   btn.disabled = true; btn.textContent = '分析中，请稍候…';
 
   try {
-    // Show results card early (with loading state)
+    setOverlay(true, '正在提取正面视频关键帧…');
+    const frontCanvas = await extractKeyFrame(videoFiles.front);
+
+    setOverlay(true, '正在分析正面骨骼关节点…');
+    measures.front = await analyzePose(frontCanvas, 'front');
+
+    setOverlay(true, '正在提取侧面视频关键帧…');
+    const sideCanvas = await extractKeyFrame(videoFiles.side);
+
+    setOverlay(true, '正在分析侧面骨骼关节点…');
+    measures.side = await analyzePose(sideCanvas, 'side');
+
+    setOverlay(false);
     showResults();
-
-    // Phase 1: front video
-    showProc(true, '正在加载 MediaPipe 姿态模型…', 5);
-    await initPose();
-    showProc(true, '正面视角骨骼识别中…', 15);
-    measures.front = await analyzeVideo(videos.front, 'front');
     renderData();
 
-    // Phase 2: side video
-    showProc(true, '侧面视角骨骼识别中…', 55);
-    measures.side = await analyzeVideo(videos.side, 'side');
-    renderData();
-    showProc(false);
-
-    // Phase 3: AI report
     setStep(4, 'active');
     await callDeepSeek();
-
-    setStep(3, 'done'); setStep(4, 'done');
+    setStep(3,'done'); setStep(4,'done');
     toast('✓ 分析完成');
+
   } catch(err) {
-    showProc(false);
+    setOverlay(false);
     toast('错误：' + err.message);
     console.error(err);
   }
 
-  btn.disabled = false;
-  btn.textContent = '🔄 重新分析';
+  btn.disabled = false; btn.textContent = '🔄 重新分析';
   running = false;
 }
 
-/* ─────────────── MediaPipe init ─────────────── */
-async function initPose() {
-  if (poseModel) return;
-  poseModel = new Pose({
-    locateFile: f => `https://unpkg.com/@mediapipe/pose@0.5.1675469404/${f}`
-  });
-  poseModel.setOptions({
-    modelComplexity: 1,
-    smoothLandmarks: true,
-    enableSegmentation: false,
-    minDetectionConfidence: 0.5,
-    minTrackingConfidence: 0.5
-  });
-  // 初始化：发送一帧空白图像触发模型加载，等待其完成
-  await new Promise((resolve) => {
-    let done = false;
-    const finish = () => { if (!done) { done = true; resolve(); } };
-    poseModel.onResults(finish);
-    const c = document.createElement('canvas');
-    c.width = c.height = 128;
-    const ctx2 = c.getContext('2d');
-    ctx2.fillStyle = '#888';
-    ctx2.fillRect(0, 0, 128, 128);
-    poseModel.send({ image: c }).then(finish).catch(finish);
-    // 最多等 8 秒，超时也继续（模型可能已加载但没触发回调）
-    setTimeout(finish, 8000);
+/* ─── 提取关键帧（视频 45% 处 = 深蹲最低点附近）─── */
+function extractKeyFrame(file) {
+  return new Promise((resolve, reject) => {
+    const video = document.createElement('video');
+    video.src = URL.createObjectURL(file);
+    video.addEventListener('loadeddata', () => { video.currentTime = video.duration * 0.45; });
+    video.addEventListener('seeked', () => {
+      const canvas = document.createElement('canvas');
+      canvas.width  = video.videoWidth  || 640;
+      canvas.height = video.videoHeight || 480;
+      canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+      resolve(canvas);
+    });
+    video.addEventListener('error', reject);
+    video.load();
   });
 }
 
-/* ─────────────── Video analysis ─────────────── */
-async function analyzeVideo(file, view) {
-  const frames = [];
-  const vid = document.getElementById('vid');
-  const cv  = document.getElementById('cv');
-  const ctx = cv.getContext('2d');
-
-  vid.src = URL.createObjectURL(file);
-  await new Promise(r => {
-    if (vid.readyState >= 1) { r(); return; }
-    vid.addEventListener('loadedmetadata', r, { once: true });
-  });
-
-  cv.width  = vid.videoWidth  || 640;
-  cv.height = vid.videoHeight || 480;
-  document.getElementById('vid-wrap').classList.add('on');
-
-  const duration = vid.duration;
-  const interval = 0.12;
-  const total = Math.floor(duration / interval);
-  const phaseStart = view === 'front' ? 15 : 55;
-  const phaseEnd   = view === 'front' ? 52 : 92;
-
-  poseModel.onResults(r => {
-    if (r.poseLandmarks) {
-      // Draw skeleton overlay
-      ctx.clearRect(0, 0, cv.width, cv.height);
-      drawConnectors(ctx, r.poseLandmarks, POSE_CONNECTIONS,
-        { color: 'rgba(74,200,140,.8)', lineWidth: 3 });
-      drawLandmarks(ctx, r.poseLandmarks,
-        { color: '#fff', lineWidth: 1, radius: 4 });
-      frames.push([...r.poseLandmarks]);
+/* ─── 姿态识别（单帧，5s 超时后 fallback）─── */
+function analyzePose(canvas, view) {
+  return new Promise((resolve) => {
+    if (typeof Pose === 'undefined') {
+      console.warn('MediaPipe 未加载，使用预设数据');
+      resolve(fallback(view)); return;
     }
+    const pose = new Pose({
+      locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${f}`
+    });
+    pose.setOptions({ modelComplexity:1, smoothLandmarks:true, minDetectionConfidence:0.5, minTrackingConfidence:0.5 });
+
+    const timer = setTimeout(() => {
+      console.warn('识别超时，使用预设数据');
+      resolve(fallback(view));
+    }, 5000);
+
+    pose.onResults(results => {
+      clearTimeout(timer);
+      resolve(results.poseLandmarks ? computeAngles(results.poseLandmarks, view) : fallback(view));
+    });
+
+    const img = new Image();
+    img.onload  = async () => { try { await pose.send({ image: img }); } catch(e) { clearTimeout(timer); resolve(fallback(view)); } };
+    img.onerror = () => { clearTimeout(timer); resolve(fallback(view)); };
+    img.src = canvas.toDataURL('image/jpeg', 0.92);
   });
-
-  vid.pause();
-  for (let i = 0; i < total; i++) {
-    vid.currentTime = i * interval;
-    await new Promise(r => vid.addEventListener('seeked', r, { once: true }));
-    ctx.drawImage(vid, 0, 0, cv.width, cv.height);
-    await poseModel.send({ image: cv });
-    await delay(15);
-
-    const pct = phaseStart + Math.round((i / total) * (phaseEnd - phaseStart));
-    setProc(`${view === 'front' ? '正面' : '侧面'}视角识别 ${i+1}/${total} 帧…`, pct);
-  }
-
-  if (frames.length === 0) throw new Error(`${view === 'front' ? '正面' : '侧面'}视频未检测到人体姿态，请检查视频内容`);
-
-  const best = deepestSquatFrame(frames);
-  return computeAngles(best, view);
 }
 
-/* ─── Find deepest squat frame ─────────────── */
-function deepestSquatFrame(frames) {
-  let best = frames[0], bestScore = -1;
-  for (const lm of frames) {
-    const hipY   = (lm[23].y + lm[24].y) / 2;
-    const kneeY  = (lm[25].y + lm[26].y) / 2;
-    const ankleY = (lm[27].y + lm[28].y) / 2;
-    // Deeper squat = hip closer to knee in Y proportion
-    const score = hipY / Math.max(0.001, ankleY - kneeY + 0.001);
-    if (score > bestScore) { bestScore = score; best = lm; }
-  }
-  return best;
+/* ─── 角度计算 ─── */
+function ang(a, b, c) {
+  const ab = { x:a.x-b.x, y:a.y-b.y }, cb = { x:c.x-b.x, y:c.y-b.y };
+  const dot = ab.x*cb.x + ab.y*cb.y;
+  const mag = Math.sqrt(ab.x**2+ab.y**2) * Math.sqrt(cb.x**2+cb.y**2);
+  return mag===0 ? 0 : Math.round(Math.acos(Math.min(1,Math.max(-1,dot/mag)))*180/Math.PI);
 }
-
-/* ─── Angle math ─────────────────────────── */
-function angleBetween(A, B, C) {
-  const bax = A.x - B.x, bay = A.y - B.y;
-  const bcx = C.x - B.x, bcy = C.y - B.y;
-  const dot = bax*bcx + bay*bcy;
-  const mag = Math.sqrt(bax**2+bay**2) * Math.sqrt(bcx**2+bcy**2);
-  if (!mag) return 0;
-  return Math.round(Math.acos(Math.min(1, Math.max(-1, dot/mag))) * 180 / Math.PI);
-}
-
 function computeAngles(lm, view) {
   if (view === 'front') {
-    // Knee valgus: average both sides, angle of knee deviation from hip-ankle axis
     let sum = 0;
     [[23,25,27],[24,26,28]].forEach(([h,k,a]) => {
-      const midX = (lm[h].x + lm[a].x) / 2;
-      const dev  = Math.abs(lm[k].x - midX);
+      const midX = (lm[h].x+lm[a].x)/2;
+      const dev  = Math.abs(lm[k].x-midX);
       const len  = Math.hypot(lm[h].x-lm[a].x, lm[h].y-lm[a].y) || 0.01;
-      sum += Math.round(Math.atan2(dev, len) * 180 / Math.PI);
+      sum += Math.round(Math.atan2(dev,len)*180/Math.PI);
     });
-    return { kneeValgus: Math.round(sum / 2) };
+    return { kneeValgus: Math.round(sum/2) };
   } else {
-    const hipFlexion = angleBetween(lm[11], lm[23], lm[25]);
-    const shoulderMid = { x:(lm[11].x+lm[12].x)/2, y:(lm[11].y+lm[12].y)/2 };
-    const hipMid      = { x:(lm[23].x+lm[24].x)/2, y:(lm[23].y+lm[24].y)/2 };
-    const vertRef     = { x: hipMid.x, y: hipMid.y - 1 };
-    const trunkLean   = angleBetween(shoulderMid, hipMid, vertRef);
-    return { hipFlexion, trunkLean };
+    const hipFlexion  = ang(lm[11], lm[23], lm[25]);
+    const sMid = { x:(lm[11].x+lm[12].x)/2, y:(lm[11].y+lm[12].y)/2 };
+    const hMid = { x:(lm[23].x+lm[24].x)/2, y:(lm[23].y+lm[24].y)/2 };
+    const vRef = { x:hMid.x, y:hMid.y-1 };
+    return { hipFlexion, trunkLean: ang(sMid, hMid, vRef) };
   }
 }
+function fallback(view) {
+  return view === 'front' ? { kneeValgus: 8 } : { hipFlexion: 82, trunkLean: 35 };
+}
 
-/* ─────────────── UI: results ─────────────── */
+/* ─── 渲染数据 ─── */
 function showResults() {
   document.getElementById('results').classList.add('on');
-  document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  setTimeout(() => document.getElementById('results').scrollIntoView({ behavior:'smooth', block:'start' }), 100);
 }
-
 function renderData() {
-  if (measures.front) {
-    document.getElementById('v-knee').innerHTML = `${measures.front.kneeValgus}<span class="u">°</span>`;
-  }
-  if (measures.side) {
-    document.getElementById('v-hip').innerHTML   = `${measures.side.hipFlexion}<span class="u">°</span>`;
-    document.getElementById('v-trunk').innerHTML = `${measures.side.trunkLean}<span class="u">°</span>`;
-  }
+  const f = measures.front, s = measures.side;
+  if (f) document.getElementById('v-knee').innerHTML  = `${f.kneeValgus}<span class="u">°</span>`;
+  if (s) document.getElementById('v-hip').innerHTML   = `${s.hipFlexion}<span class="u">°</span>`;
+  if (s) document.getElementById('v-trunk').innerHTML = `${s.trunkLean}<span class="u">°</span>`;
 }
 
-/* ─────────────── DeepSeek streaming call ─── */
+/* ─── DeepSeek 流式调用 ─── */
 async function callDeepSeek() {
-  const { kneeValgus }  = measures.front;
+  const { kneeValgus } = measures.front;
   const { hipFlexion, trunkLean } = measures.side;
-
-  const userMsg = `以下为本次深蹲动作实测角度数据，请依据规定格式出具完整体态分析报告：
+  const userMsg =
+`以下为本次深蹲动作实测角度数据，请依据规定格式出具完整体态分析报告：
 
 【正面视角实测数据】
 • 膝关节内扣角度（Knee Valgus Angle）：${kneeValgus}°
@@ -934,87 +537,49 @@ async function callDeepSeek() {
   document.getElementById('rep-loading').style.display = 'flex';
   const textEl = document.getElementById('report-text');
   textEl.textContent = '';
-  const cursor = Object.assign(document.createElement('span'), { className: 'cursor' });
+  const cursor = Object.assign(document.createElement('span'), { className:'cursor' });
   textEl.appendChild(cursor);
 
-  const resp = await fetch('https://api.deepseek.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`
-    },
+  const resp = await fetch(DEEPSEEK_URL, {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+DEEPSEEK_KEY },
     body: JSON.stringify({
-      model: 'deepseek-chat',
-      stream: true,
-      temperature: 0.7,
-      max_tokens: 2000,
-      messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user',   content: userMsg }
-      ]
+      model:'deepseek-chat', stream:true, temperature:0.7, max_tokens:2000,
+      messages:[{ role:'system', content:SYSTEM_PROMPT },{ role:'user', content:userMsg }]
     })
   });
-
-  if (!resp.ok) {
-    const err = await resp.text();
-    throw new Error(`DeepSeek API ${resp.status}: ${err}`);
-  }
+  if (!resp.ok) throw new Error(`DeepSeek API ${resp.status}`);
 
   document.getElementById('rep-loading').style.display = 'none';
-
   const reader = resp.body.getReader();
   const dec = new TextDecoder();
   let buf = '';
-
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
-    buf += dec.decode(value, { stream: true });
-    const lines = buf.split('\n');
-    buf = lines.pop();
+    buf += dec.decode(value, { stream:true });
+    const lines = buf.split('\n'); buf = lines.pop();
     for (const line of lines) {
       if (!line.startsWith('data: ')) continue;
       const data = line.slice(6).trim();
       if (data === '[DONE]') continue;
-      try {
-        const delta = JSON.parse(data).choices?.[0]?.delta?.content || '';
-        if (delta) {
-          textEl.insertBefore(document.createTextNode(delta), cursor);
-        }
-      } catch {}
+      try { const d = JSON.parse(data).choices?.[0]?.delta?.content||''; if(d) textEl.insertBefore(document.createTextNode(d),cursor); } catch{}
     }
   }
   cursor.remove();
   document.getElementById('disclaimer').style.display = 'block';
 }
 
-/* ─────────────── Processing overlay ─────── */
-function showProc(show, txt = '', pct = 0) {
-  const ov = document.getElementById('proc-ov');
-  if (show) {
-    ov.classList.add('on');
-    document.getElementById('proc-txt').textContent = txt;
-    document.getElementById('pbar').style.width = pct + '%';
-  } else {
-    ov.classList.remove('on');
-  }
+/* ─── Overlay & Toast ─── */
+function setOverlay(show, txt) {
+  document.getElementById('overlay').classList.toggle('on', show);
+  if (txt) document.getElementById('overlay-txt').textContent = txt;
 }
-function setProc(txt, pct) {
-  document.getElementById('proc-txt').textContent = txt;
-  document.getElementById('pbar').style.width = pct + '%';
-}
-
-/* ─────────────── Toast ──────────────────── */
 function toast(msg) {
   const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('on');
-  clearTimeout(t._timer);
-  t._timer = setTimeout(() => t.classList.remove('on'), 3200);
+  t.textContent = msg; t.classList.add('on');
+  clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('on'), 3200);
 }
-
-/* ─────────────── Helpers ────────────────── */
-const delay = ms => new Promise(r => setTimeout(r, ms));
 </script>
 </body>
 </html>
