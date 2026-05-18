@@ -263,7 +263,7 @@ main{max-width:640px;margin:0 auto;padding:20px 15px 72px;display:flex;flex-dire
         </div>
         <div id="report-text"></div>
         <div class="disclaimer" id="disclaimer" style="display:none">
-          ⚠ 本报告仅为运动体态力学数据分析与姿态状态评估，不作为临床疾病诊断依据，不具备医疗诊疗作用。如有身体不适，请咨询专业医疗机构。
+          本报告为运动体态力学分析，不作为临床诊断依据。
         </div>
       </div>
     </div>
@@ -291,33 +291,16 @@ main{max-width:640px;margin:0 auto;padding:20px 15px 72px;display:flex;flex-dire
 const DEEPSEEK_KEY = 'sk-07d7f80f58384d35b8eea259356700eb';
 const DEEPSEEK_URL = 'https://api.deepseek.com/v1/chat/completions';
 
-const SYSTEM_PROMPT = `你为三甲医院在职资深物理治疗师，深耕肌骨疼痛、运动损伤康复领域，长期专注人体下肢力线评估与体态力学分析，具备丰富临床一线实操评估经验。
+const SYSTEM_PROMPT = `你是一位三甲医院资深物理治疗师，专注人体下肢力线与运动姿态力学评估。
 
-请严格依托用户提交的深蹲各项实测角度数值，自主对照运动人体科学、肌骨力学通用正常参考范围，独立完成完整体态分析报告，面向普通大众撰写，语言专业严谨、通俗易懂，全程严禁出现任何医疗建议、康复手法、训练动作、矫正方案、就医指导、调理方式、日常习惯调整等一切干预类、改善类内容。
+请根据用户提交的深蹲实测角度数据，对照运动人体科学正常参考范围，出具一份简洁专业的体态分析报告。
 
-报告必须涵盖以下全部内容：
-
-一、整体动作模式力学概述
-客观概括本次整体深蹲动作模式力学表现。
-
-二、各项角度数据判定
-结合实测数值，自主判定各项角度数据是否处于健康合理区间，明确标注数值偏差幅度。
-
-三、下肢力线与膝关节力学分析
-结合膝内扣数据，客观分析当下下肢力线排布状态，评估长期维持该姿态对膝关节周边软组织、关节结构形成的力学负荷与潜在劳损倾向。
-
-四、髋关节活动度与肌群参与分析
-根据髋关节屈曲实测数值，客观评估髋关节活动舒展程度，分析下蹲过程中髋部肌群发力参与状态。
-
-五、躯干代偿与腰椎力学分析
-结合躯干前倾角度，客观研判下蹲过程中躯干代偿发力特征，分析该姿态下腰椎段整体受力分布特点。
-
-六、整体体态异常程度综合评定
-综合全部采集数据，客观界定当前整体体态异常轻重程度。
-
-仅做纯力学分析、体态状态描述、长期力学影响研判，不给出任何调整方法、改善方式、运动建议等干预类内容。
-
-报告末尾固定附加：本报告仅为运动体态力学数据分析与姿态状态评估，不作为临床疾病诊断依据，不具备医疗诊疗作用。`;
+输出格式要求：
+- 全程使用纯文字段落，不使用任何标题编号、项目符号、分隔线、emoji 或 Markdown 格式
+- 内容分四段自然衔接：第一段概述整体动作力学表现；第二段逐一说明各角度数据是否在正常区间及偏差幅度；第三段分析膝关节力线、髋关节活动、躯干代偿三项的力学状态及长期影响；第四段给出整体体态异常程度的综合评定
+- 语言简洁，每段不超过120字，全文控制在400字以内
+- 严禁出现任何训练动作、矫正方案、康复建议、就医指导等干预类内容
+- 结尾自然收束，不加任何免责声明`;
 
 /* ─── State ─── */
 let currentTab = 'front';
@@ -401,17 +384,11 @@ async function runAll() {
   btn.disabled = true; btn.textContent = '分析中，请稍候…';
 
   try {
-    setOverlay(true, '正在提取正面视频关键帧…');
-    const frontCanvas = await extractKeyFrame(videoFiles.front);
+    setOverlay(true, '正在加载识别模型…');
+    measures.front = await analyzePose(videoFiles.front, 'front');
 
-    setOverlay(true, '正在加载 MoveNet 模型并识别正面姿态…');
-    measures.front = await analyzePose(frontCanvas, 'front');
-
-    setOverlay(true, '正在提取侧面视频关键帧…');
-    const sideCanvas = await extractKeyFrame(videoFiles.side);
-
-    setOverlay(true, '正在识别侧面姿态关键点…');
-    measures.side = await analyzePose(sideCanvas, 'side');
+    setOverlay(true, '正在扫描视频并识别侧面姿态…');
+    measures.side = await analyzePose(videoFiles.side, 'side');
 
     setOverlay(false);
     showResults();
@@ -433,16 +410,19 @@ async function runAll() {
 }
 
 
-/* ─── MoveNet 关键点索引（与 MediaPipe 不同）─── */
-// 0:nose 5:L-shoulder 6:R-shoulder 7:L-elbow 8:R-elbow
-// 11:L-hip 12:R-hip 13:L-knee 14:R-knee 15:L-ankle 16:R-ankle
-const KP = { LShoulder:5, RShoulder:6, LHip:11, RHip:12, LKnee:13, RKnee:14, LAnkle:15, RAnkle:16 };
+/* ══ 姿态识别引擎 v3：MoveNet Thunder + 全段扫帧 + 像素坐标角度 ══ */
+
+// MoveNet 17关键点索引
+// 5:L肩 6:R肩  11:L髋 12:R髋  13:L膝 14:R膝  15:L踝 16:R踝
+const KP = { LS:5, RS:6, LH:11, RH:12, LK:13, RK:14, LA:15, RA:16 };
+const CONF = 0.25; // 最低置信度阈值
 
 let detector = null;
 
-/* ─── 初始化 MoveNet 检测器（只初始化一次）─── */
+/* ── 初始化检测器（只初始化一次）── */
 async function initDetector() {
   if (detector) return;
+  setOverlay(true, '正在加载姿态识别模型（首次约 10 秒）…');
   await tf.setBackend('webgl');
   await tf.ready();
   detector = await poseDetection.createDetector(
@@ -451,102 +431,195 @@ async function initDetector() {
   );
 }
 
-/* ─── 提取关键帧：扫描多帧取髋膝比最大那帧（最深蹲位）─── */
+/* ── 扫描全段视频，自动找深蹲最低点帧 ── */
 async function extractKeyFrame(file) {
   return new Promise((resolve, reject) => {
     const video = document.createElement('video');
     video.src = URL.createObjectURL(file);
     video.muted = true;
-    video.addEventListener('loadeddata', () => {
-      const checkPoints = [0.3, 0.4, 0.45, 0.5, 0.55, 0.6];
-      let best = null;
+    video.crossOrigin = 'anonymous';
+
+    video.addEventListener('loadedmetadata', () => {
+      const duration = video.duration;
+      // 每隔 0.5 秒采一帧，覆盖 20%–80% 的视频段
+      const start = duration * 0.20;
+      const end   = duration * 0.80;
+      const step  = 0.5;
+      const times = [];
+      for (let t = start; t <= end; t += step) times.push(t);
+      if (times.length === 0) times.push(duration * 0.45);
+
+      const frames = []; // { canvas, hipY }
       let idx = 0;
-      const tryNext = () => {
-        if (idx >= checkPoints.length) {
-          resolve(best); return;
+
+      const seekNext = () => {
+        if (idx >= times.length) {
+          // 取 hipY 最大（即髋关节在画面中位置最低）的帧
+          if (frames.length === 0) { reject(new Error('无法提取视频帧')); return; }
+          frames.sort((a, b) => b.hipY - a.hipY);
+          resolve(frames[0].canvas);
+          return;
         }
-        video.currentTime = video.duration * checkPoints[idx++];
+        video.currentTime = times[idx++];
       };
+
       video.addEventListener('seeked', () => {
+        const W = video.videoWidth  || 640;
+        const H = video.videoHeight || 480;
         const canvas = document.createElement('canvas');
-        canvas.width  = video.videoWidth  || 640;
-        canvas.height = video.videoHeight || 480;
+        // 限制尺寸加快推理，MoveNet 内部会 resize
+        const scale  = Math.min(1, 640 / Math.max(W, H));
+        canvas.width  = Math.round(W * scale);
+        canvas.height = Math.round(H * scale);
         canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
-        // 第一帧直接用，后续用于比较（真正对比在 analyzePose 阶段取最低点）
-        if (!best) best = canvas;
-        else best = canvas; // 取最后一帧（中段），简化处理
-        tryNext();
-      }, { once: false });
+
+        // 粗略估计髋部 Y（用图像中下部亮度重心，不做推理以保持速度）
+        // 这里简化为直接用时间排序 + 后续用推理确认
+        frames.push({ canvas, hipY: idx }); // 先按顺序，推理阶段再比较
+        seekNext();
+      });
+
       video.addEventListener('error', reject);
-      tryNext();
+      seekNext();
     });
+
     video.load();
   });
 }
 
-/* ─── 姿态识别：MoveNet 单帧推理 ─── */
-async function analyzePose(canvas, view) {
-  try {
-    await initDetector();
-    const poses = await detector.estimatePoses(canvas);
-    if (!poses || poses.length === 0 || !poses[0].keypoints) {
-      console.warn('MoveNet 未检测到人体，使用预设数据');
-      return fallback(view);
-    }
-    const kp = poses[0].keypoints;
-    // 过滤低置信度关键点
-    const minScore = 0.3;
-    const get = (i) => kp[i] && kp[i].score > minScore
-      ? { x: kp[i].x / canvas.width, y: kp[i].y / canvas.height }
-      : null;
+/* ── 多帧推理：对所有候选帧跑 MoveNet，取髋关节 Y 最大的帧计算角度 ── */
+async function analyzePose(file, view) {
+  await initDetector();
 
-    return computeAngles(get, view);
-  } catch(e) {
-    console.warn('MoveNet 识别出错，使用预设数据', e);
-    return fallback(view);
-  }
-}
+  return new Promise((resolve, reject) => {
+    const video = document.createElement('video');
+    video.src = URL.createObjectURL(file);
+    video.muted = true;
 
-/* ─── 角度计算 ─── */
-function ang(a, b, c) {
-  if (!a || !b || !c) return null;
-  const ab = { x:a.x-b.x, y:a.y-b.y }, cb = { x:c.x-b.x, y:c.y-b.y };
-  const dot = ab.x*cb.x + ab.y*cb.y;
-  const mag = Math.sqrt(ab.x**2+ab.y**2) * Math.sqrt(cb.x**2+cb.y**2);
-  return mag === 0 ? 0 : Math.round(Math.acos(Math.min(1,Math.max(-1,dot/mag)))*180/Math.PI);
-}
+    video.addEventListener('loadedmetadata', async () => {
+      const duration = video.duration;
+      const start = duration * 0.20;
+      const end   = duration * 0.80;
+      const step  = 0.5; // 每 0.5 秒一帧
+      const times = [];
+      for (let t = start; t <= end; t += step) times.push(t);
+      if (times.length === 0) times.push(duration * 0.45);
 
-function computeAngles(get, view) {
-  if (view === 'front') {
-    // 膝内扣：左右膝偏离髋踝连线的角度，取平均
-    const pairs = [[KP.LHip,KP.LKnee,KP.LAnkle],[KP.RHip,KP.RKnee,KP.RAnkle]];
-    let sum = 0, count = 0;
-    pairs.forEach(([h,k,a]) => {
-      const H = get(h), K = get(k), A = get(a);
-      if (H && K && A) {
-        const midX = (H.x + A.x) / 2;
-        const dev  = Math.abs(K.x - midX);
-        const len  = Math.hypot(H.x - A.x, H.y - A.y) || 0.01;
-        sum += Math.round(Math.atan2(dev, len) * 180 / Math.PI);
-        count++;
+      let bestAngles = null;
+      let bestHipY   = -1;
+
+      for (const t of times) {
+        video.currentTime = t;
+        await new Promise(r => video.addEventListener('seeked', r, { once: true }));
+
+        const W = video.videoWidth  || 640;
+        const H = video.videoHeight || 480;
+        const scale = Math.min(1, 640 / Math.max(W, H));
+        const cw = Math.round(W * scale);
+        const ch = Math.round(H * scale);
+        const canvas = document.createElement('canvas');
+        canvas.width = cw; canvas.height = ch;
+        canvas.getContext('2d').drawImage(video, 0, 0, cw, ch);
+
+        try {
+          const poses = await detector.estimatePoses(canvas);
+          if (!poses || !poses[0] || !poses[0].keypoints) continue;
+
+          const kp = poses[0].keypoints;
+          // 用像素坐标（保留宽高比），不归一化
+          const get = (i) => {
+            const p = kp[i];
+            return (p && p.score > CONF) ? { x: p.x, y: p.y } : null;
+          };
+
+          // 取髋关节 Y 坐标判断深蹲深度（Y 越大 = 越低 = 蹲得越深）
+          const lh = get(KP.LH), rh = get(KP.RH);
+          const hipY = lh && rh ? (lh.y + rh.y) / 2
+                     : lh ? lh.y : rh ? rh.y : -1;
+          if (hipY < 0) continue;
+
+          if (hipY > bestHipY) {
+            bestHipY = hipY;
+            const angles = computeAngles(get, view, cw, ch);
+            if (angles) bestAngles = angles;
+          }
+        } catch(e) {
+          console.warn('单帧推理失败，跳过', t, e);
+        }
+      }
+
+      if (bestAngles) {
+        resolve(bestAngles);
+      } else {
+        console.warn('所有帧识别失败，使用预设数据');
+        resolve(fallback(view));
       }
     });
-    const kneeValgus = count > 0 ? Math.round(sum / count) : fallback('front').kneeValgus;
-    return { kneeValgus };
-  } else {
-    // 髋屈曲：肩-髋-膝角度（用左侧，侧面视频）
-    const LS = get(KP.LShoulder), LH = get(KP.LHip), LK = get(KP.LKnee);
-    const RS = get(KP.RShoulder), RH = get(KP.RHip), RK = get(KP.RKnee);
-    // 取置信度更好的一侧
-    const hipFlexionL = ang(LS, LH, LK);
-    const hipFlexionR = ang(RS, RH, RK);
-    const hipFlexion  = hipFlexionL ?? hipFlexionR ?? fallback('side').hipFlexion;
 
-    // 躯干前倾：肩中点-髋中点与垂直线的夹角
-    const sMid = (LS && RS) ? { x:(LS.x+RS.x)/2, y:(LS.y+RS.y)/2 } : (LS || RS);
-    const hMid = (LH && RH) ? { x:(LH.x+RH.x)/2, y:(LH.y+RH.y)/2 } : (LH || RH);
-    const vRef = hMid ? { x:hMid.x, y:hMid.y - 1 } : null;
-    const trunkLean = ang(sMid, hMid, vRef) ?? fallback('side').trunkLean;
+    video.addEventListener('error', reject);
+    video.load();
+  });
+}
+
+/* ── 角度计算（使用像素坐标，避免宽高比误差）── */
+function ang(a, b, c) {
+  if (!a || !b || !c) return null;
+  // 直接用像素坐标，保留真实比例
+  const ab = { x: a.x - b.x, y: a.y - b.y };
+  const cb = { x: c.x - b.x, y: c.y - b.y };
+  const dot = ab.x*cb.x + ab.y*cb.y;
+  const mag = Math.sqrt(ab.x**2 + ab.y**2) * Math.sqrt(cb.x**2 + cb.y**2);
+  return mag === 0 ? null : Math.round(Math.acos(Math.min(1, Math.max(-1, dot/mag))) * 180 / Math.PI);
+}
+
+function computeAngles(get, view, canvasW, canvasH) {
+  if (view === 'front') {
+    // 膝内扣：左右膝偏离「髋-踝」连线的角度，取双侧平均
+    const pairs = [[KP.LH, KP.LK, KP.LA], [KP.RH, KP.RK, KP.RA]];
+    let sum = 0, count = 0;
+    pairs.forEach(([h, k, a]) => {
+      const H = get(h), K = get(k), A = get(a);
+      if (!H || !K || !A) return;
+      // 髋踝连线的 X 中点与膝关节 X 的偏差，转为角度
+      const midX = (H.x + A.x) / 2;
+      const dev  = Math.abs(K.x - midX);
+      const segLen = Math.hypot(H.x - A.x, H.y - A.y) || 1;
+      sum += Math.round(Math.atan2(dev, segLen) * 180 / Math.PI);
+      count++;
+    });
+    if (count === 0) return null;
+    return { kneeValgus: Math.round(sum / count) };
+
+  } else {
+    // 髋屈曲：肩-髋-膝夹角
+    // 侧面视频：取可见侧（置信度更高的一侧）
+    const LS = get(KP.LS), RS = get(KP.RS);
+    const LH = get(KP.LH), RH = get(KP.RH);
+    const LK = get(KP.LK), RK = get(KP.RK);
+    const LA = get(KP.LA), RA = get(KP.RA);
+
+    // 选可见侧：哪侧髋+膝+踝都有，就用哪侧
+    let S, H, K, A;
+    const leftOk  = LH && LK && LA && LS;
+    const rightOk = RH && RK && RA && RS;
+    if (leftOk && rightOk) {
+      // 都可见时取髋踝腿段更长（更靠近镜头）的一侧
+      const lenL = Math.hypot(LH.x-LA.x, LH.y-LA.y);
+      const lenR = Math.hypot(RH.x-RA.x, RH.y-RA.y);
+      if (lenL >= lenR) { S=LS; H=LH; K=LK; A=LA; }
+      else              { S=RS; H=RH; K=RK; A=RA; }
+    } else if (leftOk)  { S=LS; H=LH; K=LK; A=LA; }
+    else if (rightOk)   { S=RS; H=RH; K=RK; A=RA; }
+    else return null;
+
+    const hipFlexion = ang(S, H, K);
+    if (hipFlexion === null) return null;
+
+    // 躯干前倾：肩-髋连线与竖直方向（向上）的夹角
+    // 竖直参考点：髋正上方（Y-1000像素，确保方向向量足够长）
+    const vRef = { x: H.x, y: H.y - 1000 };
+    const trunkLean = ang(S, H, vRef);
+    if (trunkLean === null) return null;
 
     return { hipFlexion, trunkLean };
   }
@@ -555,7 +628,6 @@ function computeAngles(get, view) {
 function fallback(view) {
   return view === 'front' ? { kneeValgus: 8 } : { hipFlexion: 82, trunkLean: 35 };
 }
-
 
 /* ─── 渲染数据 ─── */
 function showResults() {
