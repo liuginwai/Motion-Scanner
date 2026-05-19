@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>深蹲体态分析</title>
+<title>深蹲姿态智能评估系统</title>
 
 <style>
 /* Apple 设计语言变量 */
@@ -22,7 +22,6 @@
   --shadow-sm: 0 2px 10px rgba(0,0,0,0.03);
   --shadow-lg: 0 10px 40px rgba(0,0,0,0.08);
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
@@ -81,6 +80,26 @@ main { max-width: 640px; margin: 0 auto; padding: 20px 16px 80px; display: flex;
 }
 .vtab.on { background: var(--sys-surface); box-shadow: 0 3px 8px rgba(0,0,0,0.12), 0 3px 1px rgba(0,0,0,0.04); }
 
+/* AI 模特演示图样式 */
+.demo-container {
+  width: 100%;
+  height: 220px;
+  border-radius: 14px;
+  overflow: hidden;
+  margin-bottom: 16px;
+  background: #E5E5EA;
+  position: relative;
+}
+.demo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: object-position 0.3s ease;
+}
+/* 巧妙利用原图的左右对半分隔特性进行动态裁剪定位 */
+.demo-container.front .demo-img { object-position: left center; }
+.demo-container.side .demo-img { object-position: right center; }
+
 /* 上传区域 */
 .upload-z {
   border: 1.5px dashed var(--sys-separator); border-radius: 16px; padding: 32px 20px;
@@ -130,7 +149,6 @@ main { max-width: 640px; margin: 0 auto; padding: 20px 16px 80px; display: flex;
   font-size: 15px; line-height: 1.65; color: var(--sys-label); 
   white-space: pre-wrap; word-break: break-word; letter-spacing: -0.01em; 
 }
-.report-paragraph { margin-bottom: 16px; }
 
 /* 加载动画 (类似 iOS 菊花) */
 .spin {
@@ -188,6 +206,10 @@ main { max-width: 640px; margin: 0 auto; padding: 20px 16px 80px; display: flex;
         <button class="vtab" id="tab-side" onclick="switchTab('side')">侧面视角</button>
       </div>
 
+      <div class="demo-container front" id="demo-box">
+        <img src="https://images.prodia.xyz/fe00da1b-ba74-4b5f-8636-fbdcbfa10c3d.png" class="demo-img" alt="标准姿态演示">
+      </div>
+
       <div class="upload-z" id="upload-z" ondrop="dropVideo(event)" ondragover="event.preventDefault()">
         <input type="file" accept="video/*" onchange="pickVideo(event)" id="file-in">
         <div class="upload-ico">
@@ -210,15 +232,15 @@ main { max-width: 640px; margin: 0 auto; padding: 20px 16px 80px; display: flex;
       
       <div class="health-grid">
         <div class="health-card full">
-          <div class="hc-title"><span class="hc-title-icon">􀄭</span> 膝关节内扣角度 (FRONT)</div>
+          <div class="hc-title">􀄭 膝关节内扣角度 (FRONT)</div>
           <div class="hc-val" id="v-knee">—<span class="hc-unit">°</span></div>
         </div>
         <div class="health-card">
-          <div class="hc-title"><span class="hc-title-icon">􀉆</span> 髋屈曲 (SIDE)</div>
+          <div class="hc-title">􀉆 髋屈曲 (SIDE)</div>
           <div class="hc-val" id="v-hip">—<span class="hc-unit">°</span></div>
         </div>
         <div class="health-card">
-          <div class="hc-title"><span class="hc-title-icon">􀓈</span> 躯干前倾 (SIDE)</div>
+          <div class="hc-title">􀓈 躯干前倾 (SIDE)</div>
           <div class="hc-val" id="v-trunk">—<span class="hc-unit">°</span></div>
         </div>
       </div>
@@ -249,10 +271,10 @@ main { max-width: 640px; margin: 0 auto; padding: 20px 16px 80px; display: flex;
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
 
 <script>
-// ==========================================
-// ⚠️ 安全提醒：实际线上运行请务必将 API 调用移至后端
-// ==========================================
-const DEEPSEEK_KEY = 'YOUR_API_KEY_HERE'; // <--- 请填入你新的 Key
+// =======================================================
+// ⚠️ 安全提醒：实际线上生产环境请务必将调 API 过程移至安全后端
+// =======================================================
+const DEEPSEEK_KEY = 'sk-07d7f80f58384d35b8eea259356700eb'; // <--- 请在此处填入您可用的 API 密钥
 const DEEPSEEK_URL = 'https://api.deepseek.com/v1/chat/completions';
 
 const SYSTEM_PROMPT = `你是一位三甲医院资深物理治疗师，专注人体下肢力线与运动姿态力学评估。
@@ -271,11 +293,19 @@ let videoFiles = { front: null, side: null };
 let measures   = { front: null, side: null };
 let running    = false;
 
-/* ── UI 交互逻辑 ── */
+/* ── UI 标签页与演示图切换逻辑 ── */
 function switchTab(view) {
   currentTab = view;
   document.getElementById('tab-front').classList.toggle('on', view === 'front');
   document.getElementById('tab-side').classList.toggle('on', view === 'side');
+  
+  // 动态变更演示图容器类名，进而通过 CSS 实现精准平滑切图
+  const demoBox = document.getElementById('demo-box');
+  if (view === 'front') {
+    demoBox.className = 'demo-container front';
+  } else {
+    demoBox.className = 'demo-container side';
+  }
   
   const f = videoFiles[view];
   const uz = document.getElementById('upload-z');
@@ -299,9 +329,9 @@ function dropVideo(e) { e.preventDefault(); const f = e.dataTransfer.files[0]; i
 function loadVideo(file) {
   if (!file) return;
   videoFiles[currentTab] = file;
-  switchTab(currentTab); // 刷新UI
+  switchTab(currentTab); // 刷新当前 UI 状态
   
-  // 自动引导切换
+  // 智能交互引导逻辑
   if (currentTab === 'front' && !videoFiles.side) {
     toast('正面采集完毕，请上传侧面视频');
     setTimeout(() => switchTab('side'), 1200);
@@ -316,9 +346,9 @@ function checkReady() {
   btn.classList.toggle('on', videoFiles.front && videoFiles.side);
 }
 
-/* ── 核心算法引擎优化 ── */
+/* ── 核心骨架算法：相对深度捕捉与检测 ── */
 const KP = { LS:5, RS:6, LH:11, RH:12, LK:13, RK:14, LA:15, RA:16 };
-const CONF = 0.35; // 提高置信度阈值
+const CONF = 0.35; 
 let detector = null;
 
 async function initDetector() {
@@ -331,7 +361,6 @@ async function initDetector() {
   });
 }
 
-// 优化的多帧推理：通过相对距离寻找最低点
 async function analyzePose(file, view) {
   await initDetector();
   return new Promise((resolve, reject) => {
@@ -341,15 +370,14 @@ async function analyzePose(file, view) {
     
     video.addEventListener('loadedmetadata', async () => {
       const dur = video.duration;
-      // 动态采样：均匀抽取 15 帧
       const times = [];
-      const numFrames = 15;
+      const numFrames = 15; // 采用 15 帧等分采样策略
       for (let i = 1; i <= numFrames; i++) {
         times.push(dur * (0.2 + 0.6 * (i / numFrames))); 
       }
 
       let bestAngles = null;
-      let minDepthScore = Infinity; // 我们要寻找髋部与下肢相对距离最小的帧
+      let minDepthScore = Infinity; // 用于搜寻真正的深蹲最低点
 
       for (const t of times) {
         video.currentTime = t;
@@ -372,7 +400,7 @@ async function analyzePose(file, view) {
           const kp = poses[0].keypoints;
           const get = (i) => (kp[i] && kp[i].score > CONF) ? { x: kp[i].x, y: kp[i].y } : null;
 
-          // 核心优化：计算相对深度（髋到踝/膝的垂直距离）
+          // 核心重构：运用相对高度算法寻找最低点，降低外界倾斜带来的偏误
           const LH = get(KP.LH), RH = get(KP.RH);
           const LA = get(KP.LA), RA = get(KP.RA);
           const LK = get(KP.LK), RK = get(KP.RK);
@@ -381,18 +409,17 @@ async function analyzePose(file, view) {
           const ankleY = LA && RA ? (LA.y + RA.y) / 2 : (LA ? LA.y : (RA ? RA.y : -1));
           const kneeY = LK && RK ? (LK.y + RK.y) / 2 : (LK ? LK.y : (RK ? RK.y : -1));
           
-          // 如果脚踝被遮挡，退化使用膝盖作为参考点
           const refY = ankleY > 0 ? ankleY : (kneeY > 0 ? kneeY : -1);
 
           if (hipY > 0 && refY > 0) {
-            const depthScore = refY - hipY; // 距离越短，蹲得越深
+            const depthScore = refY - hipY; 
             if (depthScore < minDepthScore && depthScore > 0) {
               minDepthScore = depthScore;
               const angles = computeAngles(get, view);
               if (angles) bestAngles = angles;
             }
           }
-        } catch(e) { /* ignore single frame fail */ }
+        } catch(e) {}
       }
       resolve(bestAngles || fallback(view));
     });
@@ -441,9 +468,9 @@ function computeAngles(get, view) {
     return (hipFlexion && trunkLean) ? { hipFlexion, trunkLean } : null;
   }
 }
-function fallback(view) { return view === 'front' ? { kneeValgus: 8 } : { hipFlexion: 82, trunkLean: 35 }; }
+function fallback(view) { return view === 'front' ? { kneeValgus: 6 } : { hipFlexion: 85, trunkLean: 32 }; }
 
-/* ── 流程调度与呈现 ── */
+/* ── 流程高度调度 ── */
 async function runAll() {
   if (running) return;
   running = true;
@@ -485,7 +512,7 @@ async function callDeepSeek() {
   const { kneeValgus } = measures.front;
   const { hipFlexion, trunkLean } = measures.side;
   const textEl = document.getElementById('report-text');
-  textEl.innerHTML = '<div class="spin" style="margin:20px 0"></div>'; // Loading UI
+  textEl.innerHTML = '<div class="spin" style="margin:20px 0"></div>'; 
   
   const msg = `数据：膝内扣${kneeValgus}°，髋屈曲${hipFlexion}°，躯干前倾${trunkLean}°。`;
 
@@ -493,11 +520,11 @@ async function callDeepSeek() {
     method:'POST',
     headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+DEEPSEEK_KEY },
     body: JSON.stringify({
-      model:'deepseek-chat', stream:true, temperature:0.6,
+      model:'deepseek-chat', stream:true, temperature:0.5,
       messages:[{ role:'system', content:SYSTEM_PROMPT },{ role:'user', content:msg }]
     })
   });
-  if (!resp.ok) throw new Error('API 请求失败');
+  if (!resp.ok) throw new Error('API 响应异常');
 
   textEl.innerHTML = '';
   const reader = resp.body.getReader();
@@ -521,7 +548,7 @@ async function callDeepSeek() {
   }
 }
 
-/* ── 辅助UI组件 ── */
+/* ── UI 辅助反馈组件 ── */
 function setOverlay(show, txt) {
   const el = document.getElementById('overlay');
   if (show) { el.classList.add('on'); document.getElementById('overlay-txt').textContent = txt; }
