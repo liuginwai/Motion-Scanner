@@ -3,107 +3,165 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>深蹲姿态智能评估系统</title>
-
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;600&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+<title>深蹲体态分析</title>
 
 <style>
+/* Apple 设计语言变量 */
 :root {
-  --bg:#F4F1ED;--surface:#FDFCFA;--surface2:#EDE9E3;
-  --ink:#1A1714;--ink2:#5C5550;--ink3:#9C9490;
-  --green:#2D5F4E;--green2:#4A8C72;--green-bg:#E8F0EC;
-  --border:#D8D0C8;--r:14px;--shadow:0 2px 16px rgba(26,23,20,0.07);
+  --sys-bg: #F2F2F7;          /* iOS 分组背景色 */
+  --sys-surface: #FFFFFF;     /* 卡片背景 */
+  --sys-surface-hover: #F8F8F8;
+  --sys-label: #1D1D1F;       /* 标题/主要文字 */
+  --sys-sec-label: #86868B;   /* 次要文字 */
+  --sys-blue: #0071E3;        /* Apple 蓝 */
+  --sys-blue-bg: #E8F2FC;
+  --sys-green: #34C759;       /* 成功/健康绿 */
+  --sys-separator: rgba(60,60,67,0.12);
+  --r-card: 20px;
+  --r-btn: 14px;
+  --shadow-sm: 0 2px 10px rgba(0,0,0,0.03);
+  --shadow-lg: 0 10px 40px rgba(0,0,0,0.08);
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
 }
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-body{font-family:'Noto Serif SC',serif;background:var(--bg);color:var(--ink);min-height:100dvh;overflow-x:hidden}
-header{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 18px;position:sticky;top:0;z-index:90}
-.hdr{max-width:640px;margin:0 auto;display:flex;align-items:center;gap:11px}
-.logo{width:36px;height:36px;border-radius:9px;background:var(--green);display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.logo svg{width:18px;height:18px}
-.hdr-text h1{font-size:15px;font-weight:600;letter-spacing:.03em}
-.hdr-text p{font-size:10px;color:var(--ink3);font-family:'DM Mono',monospace;margin-top:1px;letter-spacing:.06em}
-main{max-width:640px;margin:0 auto;padding:20px 15px 72px;display:flex;flex-direction:column;gap:16px}
-.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;box-shadow:var(--shadow)}
-.card-hdr{padding:14px 18px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:9px}
-.num{width:22px;height:22px;border-radius:50%;background:var(--green);color:#fff;font-size:10px;font-family:'DM Mono',monospace;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.card-hdr h2{font-size:14px;font-weight:600}
-.card-body{padding:18px}
-.demo-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.demo-card{background:var(--surface2);border-radius:11px;overflow:hidden}
-.demo-fig{height:150px;display:flex;align-items:center;justify-content:center;background:linear-gradient(150deg,#E8F0EC,#D0E4DA)}
-.demo-fig svg{width:70px;height:130px}
-.demo-lbl{font-size:11px;color:var(--ink2);text-align:center;padding:9px;line-height:1.45}
-.kp-list{margin-top:14px;display:flex;flex-direction:column;gap:7px}
-.kp{display:flex;gap:8px;align-items:flex-start;font-size:12px;color:var(--ink2);line-height:1.55}
-.kp-dot{width:15px;height:15px;border-radius:50%;flex-shrink:0;margin-top:1px;background:var(--green-bg);border:1.5px solid var(--green2);display:flex;align-items:center;justify-content:center}
-.kp-dot svg{width:7px}
-.guide-box{background:var(--green-bg);border:1px solid #C5D9CF;border-radius:11px;padding:13px 15px;margin-bottom:15px}
-.guide-box h3{font-size:11px;font-family:'DM Mono',monospace;color:var(--green);letter-spacing:.07em;margin-bottom:9px}
-.g-list{display:flex;flex-direction:column;gap:6px}
-.g-item{display:flex;gap:7px;font-size:12px;color:var(--ink2);line-height:1.5}
-.vtabs{display:flex;gap:7px;margin-bottom:13px}
-.vtab{flex:1;padding:10px 6px;border:1.5px solid var(--border);border-radius:10px;background:var(--surface2);font-family:'Noto Serif SC',serif;font-size:13px;color:var(--ink2);cursor:pointer;transition:all .2s;text-align:center}
-.vtab small{display:block;font-size:9px;font-family:'DM Mono',monospace;opacity:.65;margin-top:2px;letter-spacing:.05em}
-.vtab.on{border-color:var(--green);background:var(--green-bg);color:var(--green);font-weight:600}
-.upload-z{border:2px dashed var(--border);border-radius:13px;padding:28px 18px;text-align:center;cursor:pointer;transition:all .22s;position:relative;overflow:hidden;background:var(--surface2)}
-.upload-z:active{transform:scale(.98)}
-.upload-z.has-file{border-color:var(--green);border-style:solid;background:var(--green-bg)}
-.upload-z input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
-.upload-ico{width:44px;height:44px;background:var(--green);border-radius:50%;margin:0 auto 11px;display:flex;align-items:center;justify-content:center;transition:all .25s}
-.upload-z.has-file .upload-ico{background:var(--green2)}
-.upload-ico svg{width:22px;height:22px}
-.upload-t{font-size:14px;font-weight:600;margin-bottom:3px}
-.upload-s{font-size:11px;color:var(--ink3);font-family:'DM Mono',monospace}
-.upload-z.has-file .upload-s{color:var(--green);font-weight:500}
-.steps-row{display:flex;align-items:center;margin-bottom:18px}
-.step-item{flex:1;text-align:center;position:relative}
-.step-item:not(:last-child)::after{content:'';position:absolute;top:14px;right:-50%;width:100%;height:1.5px;background:var(--border)}
-.step-item.done::after{background:var(--green)}
-.step-circle{width:28px;height:28px;border-radius:50%;margin:0 auto 5px;border:2px solid var(--border);background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:11px;font-family:'DM Mono',monospace;color:var(--ink3);position:relative;z-index:1;transition:all .3s}
-.step-item.done .step-circle{border-color:var(--green);background:var(--green);color:#fff}
-.step-item.active .step-circle{border-color:var(--green);color:var(--green);background:var(--green-bg)}
-.step-lbl{font-size:10px;color:var(--ink3);font-family:'DM Mono',monospace;letter-spacing:.04em}
-.step-item.done .step-lbl,.step-item.active .step-lbl{color:var(--green)}
-.btn-main{width:100%;padding:15px;border:none;border-radius:12px;font-family:'Noto Serif SC',serif;font-size:15px;font-weight:600;cursor:pointer;transition:all .2s;letter-spacing:.04em;background:var(--green);color:#fff;display:none;margin-top:14px}
-.btn-main.on{display:block}
-.btn-main:active{transform:scale(.98)}
-.btn-main:disabled{opacity:.5;cursor:not-allowed;transform:none}
-.analyze-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);z-index:999;display:none;align-items:center;justify-content:center}
-.analyze-overlay.on{display:flex}
-.analyze-card{background:#fff;border-radius:20px;padding:36px 28px;text-align:center;max-width:280px;margin:0 20px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
-.spin{width:44px;height:44px;border:3px solid #e5e5ea;border-top-color:var(--green);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 18px}
-@keyframes spin{to{transform:rotate(360deg)}}
-.analyze-card p{font-size:14px;color:var(--ink2);font-weight:500;line-height:1.6}
-.results-section{display:none}
-.results-section.on{display:block}
-.data-grid{display:flex;flex-direction:column;gap:10px;margin-bottom:20px}
-.data-row{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:13px 15px;display:flex;align-items:center;justify-content:space-between}
-.data-lbl{font-size:13px;color:var(--ink2);line-height:1.4}
-.data-lbl small{display:block;font-size:10px;font-family:'DM Mono',monospace;color:var(--ink3);margin-top:2px}
-.badge{display:inline-block;font-size:8.5px;font-family:'DM Mono',monospace;letter-spacing:.07em;padding:2px 7px;border-radius:20px;margin-bottom:3px}
-.bf{background:#E3EDF5;color:#2A5F8B}
-.bs{background:#F0E8F5;color:#6B2A8B}
-.data-val{font-size:28px;font-family:'DM Mono',monospace;color:var(--ink);min-width:82px;text-align:right}
-.data-val .u{font-size:14px;color:var(--ink3)}
-.report-wrap{border-top:1px solid var(--border);padding-top:18px}
-.report-hdr{display:flex;align-items:center;gap:9px;margin-bottom:14px}
-.report-hdr-icon{width:30px;height:30px;background:var(--green);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.report-hdr-icon svg{width:15px;height:15px}
-.report-hdr h3{font-size:14px;font-weight:600}
-.report-hdr p{font-size:10px;color:var(--ink3);font-family:'DM Mono',monospace;letter-spacing:.05em;margin-top:1px}
-.report-loading{display:flex;align-items:center;gap:11px;padding:10px 0}
-.spin-sm{width:20px;height:20px;border-radius:50%;border:2px solid var(--green-bg);border-top-color:var(--green);animation:spin .8s linear infinite;flex-shrink:0}
-.report-loading p{font-size:12px;color:var(--ink2)}
-#report-text{font-size:13.5px;line-height:1.9;color:var(--ink2);white-space:pre-wrap;word-break:break-word}
-.cursor{display:inline-block;width:2px;height:13px;background:var(--green);animation:blink 1s step-end infinite;vertical-align:middle}
-@keyframes blink{50%{opacity:0}}
-.disclaimer{margin-top:16px;padding:11px 13px;background:#FFF8F0;border:1px solid #E8D5C0;border-radius:10px;font-size:11px;color:#8B6040;line-height:1.65;font-family:'DM Mono',monospace}
-.priv-note{margin-top:13px;padding:11px 13px;background:var(--surface2);border-radius:10px;font-size:11px;color:var(--ink3);font-family:'DM Mono',monospace;line-height:1.65}
-.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(70px);background:var(--ink);color:#fff;padding:11px 18px;border-radius:100px;font-size:13px;z-index:9999;transition:transform .3s;white-space:nowrap;max-width:88vw;text-align:center;pointer-events:none}
-.toast.on{transform:translateX(-50%) translateY(0)}
-::-webkit-scrollbar{width:3px}
-::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+body {
+  font-family: var(--font-sans);
+  background: var(--sys-bg);
+  color: var(--sys-label);
+  min-height: 100dvh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 毛玻璃顶栏 */
+header {
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 0.5px solid var(--sys-separator);
+  padding: 16px 20px;
+  position: sticky;
+  top: 0;
+  z-index: 90;
+}
+.hdr { max-width: 640px; margin: 0 auto; display: flex; align-items: center; gap: 12px; }
+.logo {
+  width: 32px; height: 32px; border-radius: 8px; background: var(--sys-blue);
+  display: flex; align-items: center; justify-content: center;
+}
+.hdr-text h1 { font-size: 17px; font-weight: 600; letter-spacing: -0.02em; }
+.hdr-text p { font-size: 11px; color: var(--sys-sec-label); margin-top: 2px; }
+
+main { max-width: 640px; margin: 0 auto; padding: 20px 16px 80px; display: flex; flex-direction: column; gap: 20px; }
+
+/* 卡片基类 */
+.card {
+  background: var(--sys-surface);
+  border-radius: var(--r-card);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+.card-hdr {
+  padding: 18px 20px 14px;
+  border-bottom: 0.5px solid var(--sys-separator);
+}
+.card-hdr h2 { font-size: 19px; font-weight: 600; letter-spacing: -0.02em; }
+.card-body { padding: 20px; }
+
+/* 视图分段控制器 (Segmented Control) */
+.vtabs {
+  display: flex; background: rgba(118,118,128,0.12); padding: 2px; border-radius: 9px; margin-bottom: 20px;
+}
+.vtab {
+  flex: 1; padding: 6px; border: none; background: transparent; border-radius: 7px;
+  font-family: var(--font-sans); font-size: 13px; font-weight: 500; color: var(--sys-label);
+  cursor: pointer; transition: all 0.2s cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+.vtab.on { background: var(--sys-surface); box-shadow: 0 3px 8px rgba(0,0,0,0.12), 0 3px 1px rgba(0,0,0,0.04); }
+
+/* 上传区域 */
+.upload-z {
+  border: 1.5px dashed var(--sys-separator); border-radius: 16px; padding: 32px 20px;
+  text-align: center; cursor: pointer; transition: all 0.2s; position: relative; background: var(--sys-surface-hover);
+}
+.upload-z:active { transform: scale(0.98); }
+.upload-z.has-file { border-color: var(--sys-blue); border-style: solid; background: var(--sys-blue-bg); }
+.upload-z input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+.upload-ico {
+  width: 48px; height: 48px; background: var(--sys-blue); border-radius: 50%;
+  margin: 0 auto 12px; display: flex; align-items: center; justify-content: center;
+}
+.upload-z.has-file .upload-ico { background: var(--sys-green); }
+.upload-t { font-size: 15px; font-weight: 600; margin-bottom: 4px; color: var(--sys-label); }
+.upload-s { font-size: 12px; color: var(--sys-sec-label); }
+
+/* 主按钮 */
+.btn-main {
+  width: 100%; padding: 16px; border: none; border-radius: var(--r-btn);
+  font-family: var(--font-sans); font-size: 16px; font-weight: 600; cursor: pointer;
+  background: var(--sys-blue); color: #fff; display: none; margin-top: 20px;
+  transition: all 0.2s;
+}
+.btn-main.on { display: block; }
+.btn-main:active { transform: scale(0.97); }
+.btn-main:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+/* 类似 Apple Health 的数据网格 */
+.results-section { display: none; opacity: 0; transition: opacity 0.5s ease; }
+.results-section.on { display: block; opacity: 1; }
+.health-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px; }
+.health-card {
+  background: var(--sys-surface-hover); padding: 16px; border-radius: 16px;
+  display: flex; flex-direction: column; justify-content: space-between; min-height: 100px;
+}
+.health-card.full { grid-column: 1 / -1; }
+.hc-title { font-size: 12px; font-weight: 600; color: var(--sys-sec-label); text-transform: uppercase; letter-spacing: 0.02em; }
+.hc-title-icon { color: var(--sys-blue); margin-right: 4px; }
+.hc-val { font-size: 32px; font-weight: 700; font-family: var(--font-sans); letter-spacing: -0.03em; margin-top: 8px; }
+.hc-unit { font-size: 16px; font-weight: 600; color: var(--sys-sec-label); margin-left: 2px; }
+
+/* 报告排版 */
+.report-wrap { border-top: 0.5px solid var(--sys-separator); padding-top: 24px; }
+.report-hdr { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+.report-hdr h3 { font-size: 17px; font-weight: 600; }
+#report-text { 
+  font-size: 15px; line-height: 1.65; color: var(--sys-label); 
+  white-space: pre-wrap; word-break: break-word; letter-spacing: -0.01em; 
+}
+.report-paragraph { margin-bottom: 16px; }
+
+/* 加载动画 (类似 iOS 菊花) */
+.spin {
+  width: 36px; height: 36px; margin: 0 auto 16px;
+  border: 3px solid rgba(0, 0, 0, 0.1); border-top-color: var(--sys-sec-label);
+  border-radius: 50%; animation: spin 1s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg) } }
+
+.analyze-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  z-index: 999; display: none; align-items: center; justify-content: center;
+}
+.analyze-overlay.on { display: flex; animation: fadeIn 0.3s; }
+.analyze-card {
+  background: var(--sys-surface); border-radius: 24px; padding: 32px; 
+  text-align: center; width: 260px; box-shadow: var(--shadow-lg);
+}
+.analyze-card p { font-size: 15px; font-weight: 500; color: var(--sys-label); }
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+.toast {
+  position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%) translateY(20px);
+  background: rgba(30, 30, 30, 0.85); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  color: #fff; padding: 12px 24px; border-radius: 100px; font-size: 14px; font-weight: 500;
+  z-index: 9999; opacity: 0; transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1); pointer-events: none;
+}
+.toast.on { transform: translateX(-50%) translateY(0); opacity: 1; }
+
 </style>
 </head>
 <body>
@@ -111,412 +169,198 @@ main{max-width:640px;margin:0 auto;padding:20px 15px 72px;display:flex;flex-dire
 <header>
   <div class="hdr">
     <div class="logo">
-      <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round">
-        <circle cx="12" cy="5" r="2.5" fill="#fff" stroke="none"/>
-        <path d="M12 8v5M9 11l-3 6M15 11l3 6M9 17h6"/>
-        <path d="M9 14l3 3 3-3"/>
-      </svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
     </div>
     <div class="hdr-text">
-      <h1>深蹲姿态智能评估系统</h1>
-      <p>SQUAT POSTURE ASSESSMENT · AI POWERED</p>
+      <h1>体态评估</h1>
+      <p>Powered by MoveNet & DeepSeek</p>
     </div>
   </div>
 </header>
 
 <main>
-
-  <!-- ① 示范 -->
   <div class="card">
-    <div class="card-hdr"><div class="num">1</div><h2>标准深蹲动作示范</h2></div>
+    <div class="card-hdr"><h2>数据采集</h2></div>
     <div class="card-body">
-      <div class="demo-row">
-        <div class="demo-card">
-          <div class="demo-fig">
-            <svg viewBox="0 0 70 130" fill="none">
-              <circle cx="35" cy="10" r="8" stroke="#2D5F4E" stroke-width="2" fill="#E8F0EC"/>
-              <line x1="35" y1="18" x2="33" y2="52" stroke="#2D5F4E" stroke-width="2.5" stroke-linecap="round"/>
-              <line x1="33" y1="30" x2="15" y2="44" stroke="#2D5F4E" stroke-width="2" stroke-linecap="round"/>
-              <line x1="33" y1="30" x2="51" y2="44" stroke="#2D5F4E" stroke-width="2" stroke-linecap="round"/>
-              <line x1="33" y1="52" x2="20" y2="57" stroke="#2D5F4E" stroke-width="2.5" stroke-linecap="round"/>
-              <line x1="33" y1="52" x2="46" y2="57" stroke="#2D5F4E" stroke-width="2.5" stroke-linecap="round"/>
-              <line x1="20" y1="57" x2="17" y2="88" stroke="#2D5F4E" stroke-width="2.5" stroke-linecap="round"/>
-              <line x1="17" y1="88" x2="15" y2="120" stroke="#2D5F4E" stroke-width="2.5" stroke-linecap="round"/>
-              <line x1="46" y1="57" x2="49" y2="88" stroke="#2D5F4E" stroke-width="2.5" stroke-linecap="round"/>
-              <line x1="49" y1="88" x2="51" y2="120" stroke="#2D5F4E" stroke-width="2.5" stroke-linecap="round"/>
-              <line x1="15" y1="120" x2="7" y2="124" stroke="#2D5F4E" stroke-width="2" stroke-linecap="round"/>
-              <line x1="51" y1="120" x2="59" y2="124" stroke="#2D5F4E" stroke-width="2" stroke-linecap="round"/>
-              <circle cx="17" cy="88" r="3" fill="#4A8C72"/>
-              <circle cx="49" cy="88" r="3" fill="#4A8C72"/>
-            </svg>
-          </div>
-          <div class="demo-lbl">正面视角<br>膝盖对齐足尖方向</div>
-        </div>
-        <div class="demo-card">
-          <div class="demo-fig">
-            <svg viewBox="0 0 70 130" fill="none">
-              <circle cx="42" cy="10" r="8" stroke="#2D5F4E" stroke-width="2" fill="#E8F0EC"/>
-              <line x1="42" y1="18" x2="32" y2="55" stroke="#2D5F4E" stroke-width="2.5" stroke-linecap="round"/>
-              <line x1="37" y1="32" x2="20" y2="44" stroke="#2D5F4E" stroke-width="2" stroke-linecap="round"/>
-              <circle cx="32" cy="55" r="3.5" fill="#4A8C72"/>
-              <line x1="32" y1="55" x2="40" y2="90" stroke="#2D5F4E" stroke-width="2.5" stroke-linecap="round"/>
-              <circle cx="40" cy="90" r="3.5" fill="#4A8C72"/>
-              <line x1="40" y1="90" x2="33" y2="122" stroke="#2D5F4E" stroke-width="2.5" stroke-linecap="round"/>
-              <line x1="33" y1="122" x2="22" y2="124" stroke="#2D5F4E" stroke-width="2" stroke-linecap="round"/>
-              <line x1="33" y1="122" x2="46" y2="122" stroke="#2D5F4E" stroke-width="2" stroke-linecap="round"/>
-              <path d="M32,55 Q24,65 27,74" stroke="#F0A070" stroke-width="1.5" fill="none"/>
-              <text x="11" y="70" font-size="7" fill="#8B4513" font-family="monospace">髋屈</text>
-              <line x1="32" y1="12" x2="32" y2="122" stroke="#2D5F4E" stroke-width="1" stroke-dasharray="3,3" opacity=".3"/>
-            </svg>
-          </div>
-          <div class="demo-lbl">侧面视角<br>髋膝踝三点力线</div>
-        </div>
-      </div>
-      <div class="kp-list">
-        <div class="kp"><div class="kp-dot"><svg viewBox="0 0 8 8" fill="none"><polyline points="1,4 3,6 7,2" stroke="#2D5F4E" stroke-width="1.5" stroke-linecap="round"/></svg></div><span>双脚与肩同宽，脚尖自然外展 10–30°</span></div>
-        <div class="kp"><div class="kp-dot"><svg viewBox="0 0 8 8" fill="none"><polyline points="1,4 3,6 7,2" stroke="#2D5F4E" stroke-width="1.5" stroke-linecap="round"/></svg></div><span>膝关节沿足尖方向运动，避免内扣或外翻</span></div>
-        <div class="kp"><div class="kp-dot"><svg viewBox="0 0 8 8" fill="none"><polyline points="1,4 3,6 7,2" stroke="#2D5F4E" stroke-width="1.5" stroke-linecap="round"/></svg></div><span>髋关节屈曲至大腿平行地面或以下，全程控制</span></div>
-        <div class="kp"><div class="kp-dot"><svg viewBox="0 0 8 8" fill="none"><polyline points="1,4 3,6 7,2" stroke="#2D5F4E" stroke-width="1.5" stroke-linecap="round"/></svg></div><span>躯干保持适度前倾，脊柱中立位，核心收紧</span></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ② 上传 -->
-  <div class="card">
-    <div class="card-hdr"><div class="num">2</div><h2>上传视频 · 一键分析</h2></div>
-    <div class="card-body">
-
-      <div class="steps-row">
-        <div class="step-item active" id="step1"><div class="step-circle">1</div><div class="step-lbl">上传正面</div></div>
-        <div class="step-item" id="step2"><div class="step-circle">2</div><div class="step-lbl">上传侧面</div></div>
-        <div class="step-item" id="step3"><div class="step-circle">3</div><div class="step-lbl">开始分析</div></div>
-        <div class="step-item" id="step4"><div class="step-circle">4</div><div class="step-lbl">查看报告</div></div>
-      </div>
-
-      <div class="guide-box">
-        <h3>📋 拍摄规范要点</h3>
-        <div class="g-list">
-          <div class="g-item"><span>🧍</span><span>全身入镜，从头到脚完整拍摄，不得遮挡</span></div>
-          <div class="g-item"><span>📐</span><span>正面视频：摄像头正对人体；侧面视频：与人体呈 90° 垂直</span></div>
-          <div class="g-item"><span>☀️</span><span>光线充足，腿部、腰髋部位避免遮挡</span></div>
-          <div class="g-item"><span>🎬</span><span>缓慢完成完整蹲下 → 保持 → 起立动作</span></div>
-          <div class="g-item"><span>🎨</span><span>纯色简洁背景，提升骨骼识别精准度</span></div>
-        </div>
-      </div>
-
+      
       <div class="vtabs">
-        <button class="vtab on" id="tab-front" onclick="switchTab('front')">正面视角<small>FRONT VIEW</small></button>
-        <button class="vtab" id="tab-side"  onclick="switchTab('side')">侧面视角<small>SIDE VIEW</small></button>
+        <button class="vtab on" id="tab-front" onclick="switchTab('front')">正面视角</button>
+        <button class="vtab" id="tab-side" onclick="switchTab('side')">侧面视角</button>
       </div>
 
       <div class="upload-z" id="upload-z" ondrop="dropVideo(event)" ondragover="event.preventDefault()">
         <input type="file" accept="video/*" onchange="pickVideo(event)" id="file-in">
         <div class="upload-ico">
           <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/>
-            <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
           </svg>
         </div>
-        <div class="upload-t" id="upload-t">点击上传视频</div>
-        <div class="upload-s">MP4 · MOV · AVI · WEBM</div>
+        <div class="upload-t" id="upload-t">上传正面视频</div>
+        <div class="upload-s">需包含完整蹲起过程</div>
       </div>
 
-      <video id="vid-preview" controls playsinline
-        style="width:100%;border-radius:10px;margin-top:12px;display:none;max-height:220px;object-fit:contain;background:#000">
-      </video>
-
-      <button class="btn-main" id="btn-analyze" onclick="runAll()">🚀 开始姿态识别 + AI 分析</button>
-
-      <div class="priv-note">🔒 视频在本地浏览器处理，原始文件不上传。传输至 DeepSeek 的仅为 3 个角度数值。</div>
+      <video id="vid-preview" controls playsinline style="width:100%; border-radius:12px; margin-top:16px; display:none; max-height:240px; background:#000;"></video>
+      <button class="btn-main" id="btn-analyze" onclick="runAll()">开始智能评估</button>
     </div>
   </div>
 
-  <!-- ③ 结果 -->
   <div class="card results-section" id="results">
-    <div class="card-hdr"><div class="num">3</div><h2>实测数据 · AI 专业报告</h2></div>
+    <div class="card-hdr"><h2>评估结果</h2></div>
     <div class="card-body">
-      <div class="data-grid">
-        <div class="data-row">
-          <div class="data-lbl"><div class="badge bf">FRONT VIEW</div><br>膝关节内扣角度<small>Knee Valgus Angle</small></div>
-          <div class="data-val" id="v-knee">—</div>
+      
+      <div class="health-grid">
+        <div class="health-card full">
+          <div class="hc-title"><span class="hc-title-icon">􀄭</span> 膝关节内扣角度 (FRONT)</div>
+          <div class="hc-val" id="v-knee">—<span class="hc-unit">°</span></div>
         </div>
-        <div class="data-row">
-          <div class="data-lbl"><div class="badge bs">SIDE VIEW</div><br>髋关节屈曲角度<small>Hip Flexion Angle</small></div>
-          <div class="data-val" id="v-hip">—</div>
+        <div class="health-card">
+          <div class="hc-title"><span class="hc-title-icon">􀉆</span> 髋屈曲 (SIDE)</div>
+          <div class="hc-val" id="v-hip">—<span class="hc-unit">°</span></div>
         </div>
-        <div class="data-row">
-          <div class="data-lbl"><div class="badge bs">SIDE VIEW</div><br>躯干前倾角度<small>Trunk Lean Angle</small></div>
-          <div class="data-val" id="v-trunk">—</div>
+        <div class="health-card">
+          <div class="hc-title"><span class="hc-title-icon">􀓈</span> 躯干前倾 (SIDE)</div>
+          <div class="hc-val" id="v-trunk">—<span class="hc-unit">°</span></div>
         </div>
       </div>
+
       <div class="report-wrap">
         <div class="report-hdr">
-          <div class="report-hdr-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round">
-              <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
-            </svg>
-          </div>
-          <div><h3>AI 专业体态分析报告</h3><p>三甲医院物理治疗师视角 · 纯力学分析</p></div>
-        </div>
-        <div class="report-loading" id="rep-loading" style="display:none">
-          <div class="spin-sm"></div><p>AI 正在分析体态数据，约 10–20 秒…</p>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--sys-blue)" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          <h3>物理治疗师分析</h3>
         </div>
         <div id="report-text"></div>
-        <div class="disclaimer" id="disclaimer" style="display:none">
-          本报告为运动体态力学分析，不作为临床诊断依据。
-        </div>
       </div>
+
     </div>
   </div>
-
 </main>
 
-<!-- 分析中遮罩 -->
 <div class="analyze-overlay" id="overlay">
   <div class="analyze-card">
     <div class="spin"></div>
-    <p id="overlay-txt">正在提取视频关键帧…</p>
+    <p id="overlay-txt">正在处理...</p>
   </div>
 </div>
 
-<div class="toast" id="toast"></div>
-
+<div class="toast" id="toast">提示信息</div>
 
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core@4.20.0/dist/tf-core.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl@4.20.0/dist/tf-backend-webgl.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
 
 <script>
-/* ─── DeepSeek Key & System Prompt ─── */
-const DEEPSEEK_KEY = 'sk-07d7f80f58384d35b8eea259356700eb';
+// ==========================================
+// ⚠️ 安全提醒：实际线上运行请务必将 API 调用移至后端
+// ==========================================
+const DEEPSEEK_KEY = 'YOUR_API_KEY_HERE'; // <--- 请填入你新的 Key
 const DEEPSEEK_URL = 'https://api.deepseek.com/v1/chat/completions';
 
 const SYSTEM_PROMPT = `你是一位三甲医院资深物理治疗师，专注人体下肢力线与运动姿态力学评估。
+请根据用户提供的深蹲角度数据，出具一份纯文字专业体态分析报告。
 
-请根据用户提交的深蹲实测角度数据，对照运动人体科学正常参考范围，出具一份简洁专业的体态分析报告。
+输出严格要求：
+1. 全文必须且仅包含四个段落，段落之间用两行回车分隔。
+2. 第一段：动作力学表现概述。
+3. 第二段：数据正常区间对比及偏差说明。
+4. 第三段：膝/髋/躯干力学状态及长期代偿影响。
+5. 第四段：综合体态异常程度评定。
+6. 不使用任何 Markdown 符号（如 #、*）、编号或 emoji。不要包含任何干预或康复建议。段落必须简练，总字数不超过 400 字。`;
 
-输出格式要求：
-- 全程使用纯文字段落，不使用任何标题编号、项目符号、分隔线、emoji 或 Markdown 格式
-- 内容分四段自然衔接：第一段概述整体动作力学表现；第二段逐一说明各角度数据是否在正常区间及偏差幅度；第三段分析膝关节力线、髋关节活动、躯干代偿三项的力学状态及长期影响；第四段给出整体体态异常程度的综合评定
-- 语言简洁，每段不超过120字，全文控制在400字以内
-- 严禁出现任何训练动作、矫正方案、康复建议、就医指导等干预类内容
-- 结尾自然收束，不加任何免责声明`;
-
-/* ─── State ─── */
 let currentTab = 'front';
 let videoFiles = { front: null, side: null };
 let measures   = { front: null, side: null };
 let running    = false;
 
-/* ─── Tab ─── */
+/* ── UI 交互逻辑 ── */
 function switchTab(view) {
   currentTab = view;
   document.getElementById('tab-front').classList.toggle('on', view === 'front');
-  document.getElementById('tab-side').classList.toggle('on',  view === 'side');
-  const f  = videoFiles[view];
+  document.getElementById('tab-side').classList.toggle('on', view === 'side');
+  
+  const f = videoFiles[view];
   const uz = document.getElementById('upload-z');
   const vp = document.getElementById('vid-preview');
+  
   if (f) {
     uz.classList.add('has-file');
-    document.getElementById('upload-t').textContent = view === 'front' ? '✓ 正面视频已上传' : '✓ 侧面视频已上传';
+    document.getElementById('upload-t').textContent = view === 'front' ? '✓ 正面视频已就绪' : '✓ 侧面视频已就绪';
     vp.src = URL.createObjectURL(f); vp.style.display = 'block';
   } else {
     uz.classList.remove('has-file');
-    document.getElementById('upload-t').textContent = '点击上传视频';
+    document.getElementById('upload-t').textContent = view === 'front' ? '上传正面视频' : '上传侧面视频';
     vp.style.display = 'none';
   }
   document.getElementById('file-in').value = '';
   checkReady();
 }
 
-/* ─── Upload ─── */
 function pickVideo(e) { loadVideo(e.target.files[0]); }
-function dropVideo(e) {
-  e.preventDefault();
-  const f = e.dataTransfer.files[0];
-  if (f && f.type.startsWith('video/')) loadVideo(f);
-}
+function dropVideo(e) { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) loadVideo(f); }
 function loadVideo(file) {
   if (!file) return;
   videoFiles[currentTab] = file;
-  document.getElementById('upload-z').classList.add('has-file');
-  document.getElementById('upload-t').textContent = currentTab === 'front' ? '✓ 正面视频已上传' : '✓ 侧面视频已上传';
-  const vp = document.getElementById('vid-preview');
-  vp.src = URL.createObjectURL(file); vp.style.display = 'block';
-
+  switchTab(currentTab); // 刷新UI
+  
+  // 自动引导切换
   if (currentTab === 'front' && !videoFiles.side) {
-    setStep(1,'done'); setStep(2,'active');
-    toast('✓ 正面视频已载入，请切换上传侧面视频');
-    setTimeout(() => switchTab('side'), 1500);
+    toast('正面采集完毕，请上传侧面视频');
+    setTimeout(() => switchTab('side'), 1200);
   } else if (currentTab === 'side' && !videoFiles.front) {
-    setStep(2,'done'); setStep(1,'active');
-    toast('✓ 侧面视频已载入，请切换上传正面视频');
-    setTimeout(() => switchTab('front'), 1500);
-  } else {
-    checkReady();
+    toast('侧面采集完毕，请上传正面视频');
+    setTimeout(() => switchTab('front'), 1200);
   }
 }
+
 function checkReady() {
   const btn = document.getElementById('btn-analyze');
-  if (videoFiles.front && videoFiles.side) {
-    btn.classList.add('on');
-    setStep(1,'done'); setStep(2,'done'); setStep(3,'active');
-  } else {
-    btn.classList.remove('on');
-  }
+  btn.classList.toggle('on', videoFiles.front && videoFiles.side);
 }
 
-/* ─── Steps ─── */
-function setStep(n, state) {
-  const el = document.getElementById('step' + n);
-  el.className = 'step-item ' + state;
-  if (state === 'done') {
-    el.querySelector('.step-circle').innerHTML =
-      `<svg viewBox="0 0 10 10" fill="none" width="12"><polyline points="1,5 4,8 9,2" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg>`;
-  }
-}
-
-/* ─── Main pipeline ─── */
-async function runAll() {
-  if (running) return;
-  running = true;
-  const btn = document.getElementById('btn-analyze');
-  btn.disabled = true; btn.textContent = '分析中，请稍候…';
-
-  try {
-    setOverlay(true, '正在加载识别模型…');
-    measures.front = await analyzePose(videoFiles.front, 'front');
-
-    setOverlay(true, '正在扫描视频并识别侧面姿态…');
-    measures.side = await analyzePose(videoFiles.side, 'side');
-
-    setOverlay(false);
-    showResults();
-    renderData();
-
-    setStep(4, 'active');
-    await callDeepSeek();
-    setStep(3,'done'); setStep(4,'done');
-    toast('✓ 分析完成');
-
-  } catch(err) {
-    setOverlay(false);
-    toast('错误：' + err.message);
-    console.error(err);
-  }
-
-  btn.disabled = false; btn.textContent = '🔄 重新分析';
-  running = false;
-}
-
-
-/* ══ 姿态识别引擎 v3：MoveNet Thunder + 全段扫帧 + 像素坐标角度 ══ */
-
-// MoveNet 17关键点索引
-// 5:L肩 6:R肩  11:L髋 12:R髋  13:L膝 14:R膝  15:L踝 16:R踝
+/* ── 核心算法引擎优化 ── */
 const KP = { LS:5, RS:6, LH:11, RH:12, LK:13, RK:14, LA:15, RA:16 };
-const CONF = 0.25; // 最低置信度阈值
-
+const CONF = 0.35; // 提高置信度阈值
 let detector = null;
 
-/* ── 初始化检测器（只初始化一次）── */
 async function initDetector() {
   if (detector) return;
-  setOverlay(true, '正在加载姿态识别模型（首次约 10 秒）…');
+  setOverlay(true, '正在初始化神经引擎...');
   await tf.setBackend('webgl');
   await tf.ready();
-  detector = await poseDetection.createDetector(
-    poseDetection.SupportedModels.MoveNet,
-    { modelType: poseDetection.movenet.modelType.SINGLEPOSE_THUNDER }
-  );
-}
-
-/* ── 扫描全段视频，自动找深蹲最低点帧 ── */
-async function extractKeyFrame(file) {
-  return new Promise((resolve, reject) => {
-    const video = document.createElement('video');
-    video.src = URL.createObjectURL(file);
-    video.muted = true;
-    video.crossOrigin = 'anonymous';
-
-    video.addEventListener('loadedmetadata', () => {
-      const duration = video.duration;
-      // 每隔 0.5 秒采一帧，覆盖 20%–80% 的视频段
-      const start = duration * 0.20;
-      const end   = duration * 0.80;
-      const step  = 0.5;
-      const times = [];
-      for (let t = start; t <= end; t += step) times.push(t);
-      if (times.length === 0) times.push(duration * 0.45);
-
-      const frames = []; // { canvas, hipY }
-      let idx = 0;
-
-      const seekNext = () => {
-        if (idx >= times.length) {
-          // 取 hipY 最大（即髋关节在画面中位置最低）的帧
-          if (frames.length === 0) { reject(new Error('无法提取视频帧')); return; }
-          frames.sort((a, b) => b.hipY - a.hipY);
-          resolve(frames[0].canvas);
-          return;
-        }
-        video.currentTime = times[idx++];
-      };
-
-      video.addEventListener('seeked', () => {
-        const W = video.videoWidth  || 640;
-        const H = video.videoHeight || 480;
-        const canvas = document.createElement('canvas');
-        // 限制尺寸加快推理，MoveNet 内部会 resize
-        const scale  = Math.min(1, 640 / Math.max(W, H));
-        canvas.width  = Math.round(W * scale);
-        canvas.height = Math.round(H * scale);
-        canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
-
-        // 粗略估计髋部 Y（用图像中下部亮度重心，不做推理以保持速度）
-        // 这里简化为直接用时间排序 + 后续用推理确认
-        frames.push({ canvas, hipY: idx }); // 先按顺序，推理阶段再比较
-        seekNext();
-      });
-
-      video.addEventListener('error', reject);
-      seekNext();
-    });
-
-    video.load();
+  detector = await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet, { 
+    modelType: poseDetection.movenet.modelType.SINGLEPOSE_THUNDER 
   });
 }
 
-/* ── 多帧推理：对所有候选帧跑 MoveNet，取髋关节 Y 最大的帧计算角度 ── */
+// 优化的多帧推理：通过相对距离寻找最低点
 async function analyzePose(file, view) {
   await initDetector();
-
   return new Promise((resolve, reject) => {
     const video = document.createElement('video');
     video.src = URL.createObjectURL(file);
     video.muted = true;
-
+    
     video.addEventListener('loadedmetadata', async () => {
-      const duration = video.duration;
-      const start = duration * 0.20;
-      const end   = duration * 0.80;
-      const step  = 0.5; // 每 0.5 秒一帧
+      const dur = video.duration;
+      // 动态采样：均匀抽取 15 帧
       const times = [];
-      for (let t = start; t <= end; t += step) times.push(t);
-      if (times.length === 0) times.push(duration * 0.45);
+      const numFrames = 15;
+      for (let i = 1; i <= numFrames; i++) {
+        times.push(dur * (0.2 + 0.6 * (i / numFrames))); 
+      }
 
       let bestAngles = null;
-      let bestHipY   = -1;
+      let minDepthScore = Infinity; // 我们要寻找髋部与下肢相对距离最小的帧
 
       for (const t of times) {
         video.currentTime = t;
         await new Promise(r => video.addEventListener('seeked', r, { once: true }));
-
-        const W = video.videoWidth  || 640;
+        
+        const W = video.videoWidth || 640;
         const H = video.videoHeight || 480;
         const scale = Math.min(1, 640 / Math.max(W, H));
         const cw = Math.round(W * scale);
         const ch = Math.round(H * scale);
+        
         const canvas = document.createElement('canvas');
         canvas.width = cw; canvas.height = ch;
         canvas.getContext('2d').drawImage(video, 0, 0, cw, ch);
@@ -524,47 +368,40 @@ async function analyzePose(file, view) {
         try {
           const poses = await detector.estimatePoses(canvas);
           if (!poses || !poses[0] || !poses[0].keypoints) continue;
-
+          
           const kp = poses[0].keypoints;
-          // 用像素坐标（保留宽高比），不归一化
-          const get = (i) => {
-            const p = kp[i];
-            return (p && p.score > CONF) ? { x: p.x, y: p.y } : null;
-          };
+          const get = (i) => (kp[i] && kp[i].score > CONF) ? { x: kp[i].x, y: kp[i].y } : null;
 
-          // 取髋关节 Y 坐标判断深蹲深度（Y 越大 = 越低 = 蹲得越深）
-          const lh = get(KP.LH), rh = get(KP.RH);
-          const hipY = lh && rh ? (lh.y + rh.y) / 2
-                     : lh ? lh.y : rh ? rh.y : -1;
-          if (hipY < 0) continue;
+          // 核心优化：计算相对深度（髋到踝/膝的垂直距离）
+          const LH = get(KP.LH), RH = get(KP.RH);
+          const LA = get(KP.LA), RA = get(KP.RA);
+          const LK = get(KP.LK), RK = get(KP.RK);
 
-          if (hipY > bestHipY) {
-            bestHipY = hipY;
-            const angles = computeAngles(get, view, cw, ch);
-            if (angles) bestAngles = angles;
+          const hipY = LH && RH ? (LH.y + RH.y) / 2 : (LH ? LH.y : (RH ? RH.y : -1));
+          const ankleY = LA && RA ? (LA.y + RA.y) / 2 : (LA ? LA.y : (RA ? RA.y : -1));
+          const kneeY = LK && RK ? (LK.y + RK.y) / 2 : (LK ? LK.y : (RK ? RK.y : -1));
+          
+          // 如果脚踝被遮挡，退化使用膝盖作为参考点
+          const refY = ankleY > 0 ? ankleY : (kneeY > 0 ? kneeY : -1);
+
+          if (hipY > 0 && refY > 0) {
+            const depthScore = refY - hipY; // 距离越短，蹲得越深
+            if (depthScore < minDepthScore && depthScore > 0) {
+              minDepthScore = depthScore;
+              const angles = computeAngles(get, view);
+              if (angles) bestAngles = angles;
+            }
           }
-        } catch(e) {
-          console.warn('单帧推理失败，跳过', t, e);
-        }
+        } catch(e) { /* ignore single frame fail */ }
       }
-
-      if (bestAngles) {
-        resolve(bestAngles);
-      } else {
-        console.warn('所有帧识别失败，使用预设数据');
-        resolve(fallback(view));
-      }
+      resolve(bestAngles || fallback(view));
     });
-
-    video.addEventListener('error', reject);
     video.load();
   });
 }
 
-/* ── 角度计算（使用像素坐标，避免宽高比误差）── */
 function ang(a, b, c) {
   if (!a || !b || !c) return null;
-  // 直接用像素坐标，保留真实比例
   const ab = { x: a.x - b.x, y: a.y - b.y };
   const cb = { x: c.x - b.x, y: c.y - b.y };
   const dot = ab.x*cb.x + ab.y*cb.y;
@@ -572,111 +409,101 @@ function ang(a, b, c) {
   return mag === 0 ? null : Math.round(Math.acos(Math.min(1, Math.max(-1, dot/mag))) * 180 / Math.PI);
 }
 
-function computeAngles(get, view, canvasW, canvasH) {
+function computeAngles(get, view) {
   if (view === 'front') {
-    // 膝内扣：左右膝偏离「髋-踝」连线的角度，取双侧平均
     const pairs = [[KP.LH, KP.LK, KP.LA], [KP.RH, KP.RK, KP.RA]];
     let sum = 0, count = 0;
     pairs.forEach(([h, k, a]) => {
       const H = get(h), K = get(k), A = get(a);
       if (!H || !K || !A) return;
-      // 髋踝连线的 X 中点与膝关节 X 的偏差，转为角度
       const midX = (H.x + A.x) / 2;
-      const dev  = Math.abs(K.x - midX);
+      const dev = Math.abs(K.x - midX);
       const segLen = Math.hypot(H.x - A.x, H.y - A.y) || 1;
       sum += Math.round(Math.atan2(dev, segLen) * 180 / Math.PI);
       count++;
     });
-    if (count === 0) return null;
-    return { kneeValgus: Math.round(sum / count) };
-
+    return count > 0 ? { kneeValgus: Math.round(sum / count) } : null;
   } else {
-    // 髋屈曲：肩-髋-膝夹角
-    // 侧面视频：取可见侧（置信度更高的一侧）
-    const LS = get(KP.LS), RS = get(KP.RS);
-    const LH = get(KP.LH), RH = get(KP.RH);
-    const LK = get(KP.LK), RK = get(KP.RK);
-    const LA = get(KP.LA), RA = get(KP.RA);
-
-    // 选可见侧：哪侧髋+膝+踝都有，就用哪侧
+    const LS = get(KP.LS), RS = get(KP.RS), LH = get(KP.LH), RH = get(KP.RH);
+    const LK = get(KP.LK), RK = get(KP.RK), LA = get(KP.LA), RA = get(KP.RA);
+    
     let S, H, K, A;
-    const leftOk  = LH && LK && LA && LS;
-    const rightOk = RH && RK && RA && RS;
-    if (leftOk && rightOk) {
-      // 都可见时取髋踝腿段更长（更靠近镜头）的一侧
-      const lenL = Math.hypot(LH.x-LA.x, LH.y-LA.y);
-      const lenR = Math.hypot(RH.x-RA.x, RH.y-RA.y);
-      if (lenL >= lenR) { S=LS; H=LH; K=LK; A=LA; }
-      else              { S=RS; H=RH; K=RK; A=RA; }
-    } else if (leftOk)  { S=LS; H=LH; K=LK; A=LA; }
-    else if (rightOk)   { S=RS; H=RH; K=RK; A=RA; }
+    if (LH && LK && LA && LS && RH && RK && RA && RS) {
+      const lenL = Math.hypot(LH.x-LA.x, LH.y-LA.y), lenR = Math.hypot(RH.x-RA.x, RH.y-RA.y);
+      if (lenL >= lenR) { S=LS; H=LH; K=LK; A=LA; } else { S=RS; H=RH; K=RK; A=RA; }
+    } else if (LH && LK && LA && LS) { S=LS; H=LH; K=LK; A=LA; }
+    else if (RH && RK && RA && RS) { S=RS; H=RH; K=RK; A=RA; }
     else return null;
 
     const hipFlexion = ang(S, H, K);
-    if (hipFlexion === null) return null;
-
-    // 躯干前倾：肩-髋连线与竖直方向（向上）的夹角
-    // 竖直参考点：髋正上方（Y-1000像素，确保方向向量足够长）
     const vRef = { x: H.x, y: H.y - 1000 };
     const trunkLean = ang(S, H, vRef);
-    if (trunkLean === null) return null;
+    return (hipFlexion && trunkLean) ? { hipFlexion, trunkLean } : null;
+  }
+}
+function fallback(view) { return view === 'front' ? { kneeValgus: 8 } : { hipFlexion: 82, trunkLean: 35 }; }
 
-    return { hipFlexion, trunkLean };
+/* ── 流程调度与呈现 ── */
+async function runAll() {
+  if (running) return;
+  running = true;
+  const btn = document.getElementById('btn-analyze');
+  btn.disabled = true; btn.textContent = '分析中...';
+
+  try {
+    setOverlay(true, '提取正面运动姿态...');
+    measures.front = await analyzePose(videoFiles.front, 'front');
+    
+    setOverlay(true, '提取侧面力学特征...');
+    measures.side = await analyzePose(videoFiles.side, 'side');
+    
+    setOverlay(true, '生成专业报告...');
+    document.getElementById('results').classList.add('on');
+    renderData();
+    
+    setTimeout(() => document.getElementById('results').scrollIntoView({ behavior:'smooth', block:'start' }), 100);
+    
+    await callDeepSeek();
+    setOverlay(false);
+    toast('分析完成');
+  } catch(err) {
+    setOverlay(false); toast('错误：' + err.message);
+  }
+  btn.disabled = false; btn.textContent = '重新评估';
+  running = false;
+}
+
+function renderData() {
+  if (measures.front) document.getElementById('v-knee').innerHTML = `${measures.front.kneeValgus}<span class="hc-unit">°</span>`;
+  if (measures.side) {
+    document.getElementById('v-hip').innerHTML = `${measures.side.hipFlexion}<span class="hc-unit">°</span>`;
+    document.getElementById('v-trunk').innerHTML = `${measures.side.trunkLean}<span class="hc-unit">°</span>`;
   }
 }
 
-function fallback(view) {
-  return view === 'front' ? { kneeValgus: 8 } : { hipFlexion: 82, trunkLean: 35 };
-}
-
-/* ─── 渲染数据 ─── */
-function showResults() {
-  document.getElementById('results').classList.add('on');
-  setTimeout(() => document.getElementById('results').scrollIntoView({ behavior:'smooth', block:'start' }), 100);
-}
-function renderData() {
-  const f = measures.front, s = measures.side;
-  if (f) document.getElementById('v-knee').innerHTML  = `${f.kneeValgus}<span class="u">°</span>`;
-  if (s) document.getElementById('v-hip').innerHTML   = `${s.hipFlexion}<span class="u">°</span>`;
-  if (s) document.getElementById('v-trunk').innerHTML = `${s.trunkLean}<span class="u">°</span>`;
-}
-
-/* ─── DeepSeek 流式调用 ─── */
 async function callDeepSeek() {
   const { kneeValgus } = measures.front;
   const { hipFlexion, trunkLean } = measures.side;
-  const userMsg =
-`以下为本次深蹲动作实测角度数据，请依据规定格式出具完整体态分析报告：
-
-【正面视角实测数据】
-• 膝关节内扣角度（Knee Valgus Angle）：${kneeValgus}°
-
-【侧面视角实测数据】
-• 髋关节屈曲角度（Hip Flexion Angle）：${hipFlexion}°
-• 躯干前倾角度（Trunk Lean Angle）：${trunkLean}°
-
-请严格按照规定格式出具六部分分析报告，不得包含任何干预类、改善类、指导类内容。`;
-
-  document.getElementById('rep-loading').style.display = 'flex';
   const textEl = document.getElementById('report-text');
-  textEl.textContent = '';
-  const cursor = Object.assign(document.createElement('span'), { className:'cursor' });
-  textEl.appendChild(cursor);
+  textEl.innerHTML = '<div class="spin" style="margin:20px 0"></div>'; // Loading UI
+  
+  const msg = `数据：膝内扣${kneeValgus}°，髋屈曲${hipFlexion}°，躯干前倾${trunkLean}°。`;
 
   const resp = await fetch(DEEPSEEK_URL, {
     method:'POST',
     headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+DEEPSEEK_KEY },
     body: JSON.stringify({
-      model:'deepseek-chat', stream:true, temperature:0.7, max_tokens:2000,
-      messages:[{ role:'system', content:SYSTEM_PROMPT },{ role:'user', content:userMsg }]
+      model:'deepseek-chat', stream:true, temperature:0.6,
+      messages:[{ role:'system', content:SYSTEM_PROMPT },{ role:'user', content:msg }]
     })
   });
-  if (!resp.ok) throw new Error(`DeepSeek API ${resp.status}`);
+  if (!resp.ok) throw new Error('API 请求失败');
 
-  document.getElementById('rep-loading').style.display = 'none';
+  textEl.innerHTML = '';
   const reader = resp.body.getReader();
   const dec = new TextDecoder();
   let buf = '';
+  
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
@@ -686,22 +513,24 @@ async function callDeepSeek() {
       if (!line.startsWith('data: ')) continue;
       const data = line.slice(6).trim();
       if (data === '[DONE]') continue;
-      try { const d = JSON.parse(data).choices?.[0]?.delta?.content||''; if(d) textEl.insertBefore(document.createTextNode(d),cursor); } catch{}
+      try { 
+        const d = JSON.parse(data).choices?.[0]?.delta?.content||''; 
+        if(d) textEl.appendChild(document.createTextNode(d)); 
+      } catch{}
     }
   }
-  cursor.remove();
-  document.getElementById('disclaimer').style.display = 'block';
 }
 
-/* ─── Overlay & Toast ─── */
+/* ── 辅助UI组件 ── */
 function setOverlay(show, txt) {
-  document.getElementById('overlay').classList.toggle('on', show);
-  if (txt) document.getElementById('overlay-txt').textContent = txt;
+  const el = document.getElementById('overlay');
+  if (show) { el.classList.add('on'); document.getElementById('overlay-txt').textContent = txt; }
+  else { el.classList.remove('on'); }
 }
 function toast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg; t.classList.add('on');
-  clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('on'), 3200);
+  clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('on'), 3000);
 }
 </script>
 </body>
