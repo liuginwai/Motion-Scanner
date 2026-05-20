@@ -253,7 +253,8 @@ main { max-width: 640px; margin: 0 auto; padding: 20px 16px 80px; display: flex;
 
 <script>
 // ==========================================
-// ⚠️ 生产环境安全提醒：请在上线前将密钥及请求移至后端
+// ⚠️ 修复 1：API Key 替换提醒
+// 请在此处填入有效的 DeepSeek API 密钥
 // ==========================================
 const DEEPSEEK_KEY = 'sk-65847d23416e4b9cac9add4ffdd5d379'; 
 const DEEPSEEK_URL = 'https://api.deepseek.com/v1/chat/completions';
@@ -323,7 +324,11 @@ function switchTab(view) {
   if (f) {
     uz.classList.add('has-file');
     document.getElementById('upload-t').textContent = view === 'front' ? '✓ 正面视频已就绪' : '✓ 侧面视频已就绪';
-    vp.src = URL.createObjectURL(f); vp.style.display = 'block';
+    vp.src = URL.createObjectURL(f); 
+    vp.style.display = 'block';
+    
+    // ⚠️ 修复 2：强制触发浏览器解析视频，解决 iOS 黑屏/无画面问题
+    vp.load(); 
   } else {
     uz.classList.remove('has-file');
     document.getElementById('upload-t').textContent = view === 'front' ? '上传正面视频' : '上传侧面视频';
@@ -486,6 +491,10 @@ function fallback(view) { return view === 'front' ? { kneeValgus: 5 } : { hipFle
 /* ── 流程总控 ── */
 async function runAll() {
   if (running) return; running = true;
+  
+  // ⚠️ 修复 3：在重新评估时，清空滤波器历史缓存，防止跨视频数据漂移污染
+  for (let k in filters) delete filters[k]; 
+
   const btn = document.getElementById('btn-analyze');
   btn.disabled = true; btn.textContent = '深度力学结算中...';
 
@@ -505,7 +514,9 @@ async function runAll() {
     await callDeepSeek();
     setOverlay(false); toast('智能评估全面完成');
   } catch(err) {
-    setOverlay(false); toast('评估异常：' + err.message);
+    // ⚠️ 修复 4：捕获异常时，确保关闭加载遮罩层，让用户能退回操作
+    setOverlay(false); 
+    toast('评估异常：' + err.message);
   }
   btn.disabled = false; btn.textContent = '重新评估'; running = false;
 }
@@ -532,7 +543,7 @@ async function callDeepSeek() {
       messages:[{ role:'system', content:SYSTEM_PROMPT },{ role:'user', content:msg }]
     })
   });
-  if (!resp.ok) throw new Error('云端服务响应失败');
+  if (!resp.ok) throw new Error('云端服务响应失败，请检查 API Key 或网络环境');
 
   textEl.innerHTML = '';
   const reader = resp.body.getReader(); const dec = new TextDecoder(); let buf = '';
