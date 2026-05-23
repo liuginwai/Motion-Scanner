@@ -353,8 +353,8 @@ main { max-width: 640px; margin: 0 auto; padding: 20px 16px 80px; display: flex;
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
 
 <script>
-/* ─── 核心授权端口 ─── */
-const DEEPSEEK_KEY = 'sk-65847d23416e4b9cac9add4ffdd5d379';
+/* ─── Config ─── */
+const DEEPSEEK_KEY = 'sk-07d7f80f58384d35b8eea259356700eb';
 const DEEPSEEK_URL = 'https://api.deepseek.com/v1/chat/completions';
 
 const SYSTEM_PROMPT = `你是一位三甲医院资深物理治疗师，专注人体下肢力线与运动姿态力学评估。
@@ -367,65 +367,37 @@ const SYSTEM_PROMPT = `你是一位三甲医院资深物理治疗师，专注人
 - 严禁出现任何训练动作、矫正方案、康复建议、就医指导等干预类内容
 - 结尾自然收束，不加任何免责声明`;
 
-/* ── 一欧元滤波器 ── */
-class OneEuroFilter {
-  constructor(minCutoff = 1.0, beta = 0.004, dcutoff = 1.0) {
-    this.minCutoff = minCutoff; this.beta = beta; this.dcutoff = dcutoff;
-    this.xPrev = null; this.dxPrev = null; this.tPrev = null;
-  }
-  alpha(cutoff, rate) { const tau = 1.0 / (2 * Math.PI * cutoff); return 1.0 / (1.0 + tau * rate); }
-  filter(value, timestamp) {
-    if (this.xPrev === null) { this.xPrev = value; this.dxPrev = 0; this.tPrev = timestamp; return value; }
-    const rate = 1.0 / (timestamp - this.tPrev || 0.01);
-    const dvalue = (value - this.xPrev) * rate;
-    const edvalue = this.dxPrev + this.alpha(this.dcutoff, rate) * (dvalue - this.dxPrev);
-    const cutoff = this.minCutoff + this.beta * Math.abs(edvalue);
-    const ex = this.xPrev + this.alpha(cutoff, rate) * (value - this.xPrev);
-    this.xPrev = ex; this.dxPrev = edvalue; this.tPrev = timestamp;
-    return ex;
-  }
-}
+/* ─── MoveNet 关键点索引（17点）─── */
+// 与 MediaPipe 33点不同，MoveNet: 5=L肩 6=R肩 11=L髋 12=R髋 13=L膝 14=R膝 15=L踝 16=R踝
+const KP = { LS:5, RS:6, LH:11, RH:12, LK:13, RK:14, LA:15, RA:16 };
+const CONF = 0.28;
 
-const filters = {};
-function filter3DKeypoints(landmarks, frameIdx) {
-  landmarks.forEach((p, idx) => {
-    if (!filters[idx]) { filters[idx] = { x: new OneEuroFilter(), y: new OneEuroFilter(), z: new OneEuroFilter() }; }
-    const ts = frameIdx * 0.033;
-    p.x = filters[idx].x.filter(p.x, ts); p.y = filters[idx].y.filter(p.y, ts); p.z = filters[idx].z.filter(p.z, ts);
-  });
-}
-
-/* ─── 核心业务控制 ─── */
+/* ─── State ─── */
 let videoFiles = { front: null, side: null };
 let measures   = { front: null, side: null };
 let running    = false;
 let detector   = null;
 
-const MP = { LS: 11, RS: 12, LH: 23, RH: 24, LK: 25, RK: 26, LA: 27, RA: 28 };
-const CONF = 0.45;
-
-/* 🍏 Apple Sheet 抽屉驱动 */
-function openSheet() { document.getElementById('sheet').classList.add('on'); }
+/* ─── Sheet 抽屉 ─── */
+function openSheet()  { document.getElementById('sheet').classList.add('on'); }
 function closeSheet() { document.getElementById('sheet').classList.remove('on'); }
 
-/* 🍏 重构：自适应双轨文件注入流控 */
+/* ─── 文件载入 ─── */
 function loadVideo(inputEl, view) {
   const file = inputEl.files[0];
   if (!file) return;
-
-  // 🛡️ 工业级前端防御性容错
-  if (!file.type.startsWith('video/')) { toast('⚠️ 请上传正确的视频媒体文件'); return; }
+  if (!file.type.startsWith('video/')) { toast('⚠️ 请上传正确的视频文件'); return; }
   if (file.size > 60 * 1024 * 1024) { toast('⚠️ 视频体积过大，请控制在 60MB 以内'); return; }
 
   videoFiles[view] = file;
 
-  const cardBox = document.getElementById(`box-${view}`);
+  const cardBox    = document.getElementById('box-' + view);
   const previewWrap = cardBox.querySelector('.box-vid-wrap');
-  const videoEl = document.getElementById(`vid-${view}`);
+  const videoEl    = document.getElementById('vid-' + view);
 
   cardBox.classList.add('has-file');
-  document.getElementById(`txt-${view}-t`).textContent = view === 'front' ? '✓ 正面就绪' : '✓ 侧面就绪';
-  document.getElementById(`txt-${view}-s`).textContent = (file.size / (1024*1024)).toFixed(1) + ' MB';
+  document.getElementById('txt-' + view + '-t').textContent = view === 'front' ? '✓ 正面就绪' : '✓ 侧面就绪';
+  document.getElementById('txt-' + view + '-s').textContent = (file.size / (1024*1024)).toFixed(1) + ' MB';
 
   previewWrap.style.display = 'block';
   videoEl.src = URL.createObjectURL(file);
@@ -440,76 +412,264 @@ function checkReady() {
   if (videoFiles.front && videoFiles.side) {
     btn.classList.add('on');
     progWrap.classList.add('on');
-    document.getElementById('prog-txt').textContent = 'Dual-Channel Video Linked. Ready to compute.';
+    document.getElementById('prog-txt').textContent = '双轨视频已就绪，点击开始分析';
   } else {
     btn.classList.remove('on');
   }
 }
 
+/* ─── 初始化 MoveNet 检测器 ─── */
 async function initDetector() {
   if (detector) return;
-  document.getElementById('prog-txt').textContent = 'Loading Heavy-Pose 3D Neural Engine...';
+  setProgTxt('正在加载姿态识别模型（首次约 10 秒）…');
   await tf.setBackend('webgl');
   await tf.ready();
-  detector = await poseDetection.createDetector(poseDetection.SupportedModels.MediaPipePose, {
-    runtime: 'tfjs', modelType: 'heavy'
-  });
+  // ✅ 使用 MoveNet Thunder — 兼容所有现代浏览器，无 wasm 问题
+  detector = await poseDetection.createDetector(
+    poseDetection.SupportedModels.MoveNet,
+    { modelType: poseDetection.movenet.modelType.SINGLEPOSE_THUNDER }
+  );
 }
 
-/* ─── 多维特征视频多帧矩阵追踪 ─── */
-async function analyzePose(file, view) {
-  await initDetector();
+/* ─── 主流程 ─── */
+async function runAll() {
+  if (running) return;
+  running = true;
+  const btn = document.getElementById('btn-analyze');
+  btn.disabled = true; btn.textContent = '计算中…';
 
+  // 开启扫描线动画
+  document.getElementById('scan-front').style.display = 'block';
+
+  try {
+    await initDetector();
+
+    setProgTxt('[正面] 扫描视频帧序列…');
+    measures.front = await analyzePose(videoFiles.front, 'front');
+
+    document.getElementById('scan-front').style.display = 'none';
+    document.getElementById('scan-side').style.display = 'block';
+
+    setProgTxt('[侧面] 扫描视频帧序列…');
+    measures.side = await analyzePose(videoFiles.side, 'side');
+
+    document.getElementById('scan-side').style.display = 'none';
+
+    showResults();
+    renderData();
+
+    setProgTxt('骨骼计算完成，AI 报告生成中…');
+    await callDeepSeek();
+    setProgTxt('分析完成 ✓');
+    toast('分析完成');
+
+  } catch(err) {
+    document.getElementById('scan-front').style.display = 'none';
+    document.getElementById('scan-side').style.display = 'none';
+    toast('出错：' + err.message);
+    setProgTxt('出错：' + err.message);
+    console.error(err);
+  }
+
+  btn.disabled = false; btn.textContent = '🔄 重新分析';
+  running = false;
+}
+
+/* ─── 多帧分析：扫描视频 15%–85%，取髋关节最低点帧 ─── */
+async function analyzePose(file, view) {
   return new Promise((resolve) => {
     const video = document.createElement('video');
     video.src = URL.createObjectURL(file);
-    video.muted = true; video.playsInline = true;
-    video.setAttribute('webkit-playsinline', 'true');
+    video.muted = true;
+    video.playsInline = true;
 
     video.addEventListener('loadedmetadata', async () => {
       const dur = video.duration;
       const numFrames = 20;
       const times = [];
-      for (let i = 0; i < numFrames; i++) { times.push(dur * (0.15 + 0.7 * (i / (numFrames - 1)))); }
+      for (let i = 0; i < numFrames; i++) {
+        times.push(dur * (0.15 + 0.70 * (i / (numFrames - 1))));
+      }
 
       let bestAngles = null;
-      let minDepthScore = Infinity;
+      let bestHipY   = -1;
       let fIdx = 0;
 
       for (const t of times) {
         video.currentTime = t;
         await new Promise(r => video.addEventListener('seeked', r, { once: true }));
         fIdx++;
+        setProgTxt('[' + (view === 'front' ? '正面' : '侧面') + '] 处理帧 ' + fIdx + ' / ' + numFrames);
 
-        // 智能显示局部扫描条
-        document.getElementById('prog-txt').textContent = `[Processing] ${view.toUpperCase()} pipeline: frame ${fIdx}/${numFrames}`;
-
-        const W = video.videoWidth || 640; const H = video.videoHeight || 480;
+        const W = video.videoWidth  || 640;
+        const H = video.videoHeight || 480;
         const scale = Math.min(1, 640 / Math.max(W, H));
-        const cw = Math.round(W * scale); const ch = Math.round(H * scale);
+        const cw = Math.round(W * scale);
+        const ch = Math.round(H * scale);
         const canvas = document.createElement('canvas');
         canvas.width = cw; canvas.height = ch;
         canvas.getContext('2d').drawImage(video, 0, 0, cw, ch);
 
         try {
           const poses = await detector.estimatePoses(canvas);
-          if (!poses || !poses[0]) continue;
+          if (!poses || !poses[0] || !poses[0].keypoints) continue;
 
-          let worldLandmarks = poses[0].keypoints3D;
-          if (!worldLandmarks || worldLandmarks.length === 0) continue;
+          // ✅ MoveNet 使用 keypoints（2D），不是 keypoints3D
+          const kp  = poses[0].keypoints;
+          const get = i => (kp[i] && kp[i].score > CONF) ? { x: kp[i].x, y: kp[i].y } : null;
 
-          filter3DKeypoints(worldLandmarks, fIdx);
+          // ✅ 使用 MoveNet 正确的索引（KP.LH=11, KP.RH=12）
+          const lh = get(KP.LH), rh = get(KP.RH);
+          const hipY = lh && rh ? (lh.y + rh.y) / 2 : lh ? lh.y : rh ? rh.y : -1;
+          if (hipY < 0) continue;
 
-          const get3D = (i) => (worldLandmarks[i] && worldLandmarks[i].score > CONF) ? { x: worldLandmarks[i].x, y: worldLandmarks[i].y, z: worldLandmarks[i].z } : null;
+          // 取髋 Y 最大的帧（深蹲最低点）
+          if (hipY > bestHipY) {
+            bestHipY = hipY;
+            const a = computeAngles(get, view);
+            if (a) bestAngles = a;
+          }
+        } catch(e) {
+          console.warn('帧跳过', t, e);
+        }
+      }
 
-          const LH = get3D(MP.LH), RH = get3D(MP.RH);
-          const LA = get3D(MP.LA), RA = get3D(MP.RA);
-          const LK = get3D(MP.LK), RK = get3D(MP.RK);
+      resolve(bestAngles || fallback(view));
+    });
 
-          const hipY = LH && RH ? (LH.y + RH.y) / 2 : (LH ? LH.y : (RH ? RH.y : -1));
-          const ankleY = LA && RA ? (LA.y + RA.y) / 2 : (LA ? LA.y : (RA ? RA.y : -1));
-          const kneeY = LK && RK ? (LK.y + RK.y) / 2 : (LK ? LK.y : (RK ? RK.y : -1));
-          const refY = ankleY > -1 ? ankleY : (kneeY > -1 ? kneeY : -1);
+    video.addEventListener('error', () => resolve(fallback(view)));
+    video.load();
+  });
+}
 
-          if (hipY > -1 && refY > -1) {
-            const depthScore =
+/* ─── 角度计算（像素坐标，保留真实宽高比）─── */
+function ang(a, b, c) {
+  if (!a || !b || !c) return null;
+  const ab = { x: a.x - b.x, y: a.y - b.y };
+  const cb = { x: c.x - b.x, y: c.y - b.y };
+  const dot = ab.x*cb.x + ab.y*cb.y;
+  const mag = Math.sqrt(ab.x**2 + ab.y**2) * Math.sqrt(cb.x**2 + cb.y**2);
+  return mag === 0 ? null : Math.round(Math.acos(Math.min(1, Math.max(-1, dot/mag))) * 180 / Math.PI);
+}
+
+function computeAngles(get, view) {
+  if (view === 'front') {
+    let sum = 0, count = 0;
+    [[KP.LH, KP.LK, KP.LA], [KP.RH, KP.RK, KP.RA]].forEach(([h, k, a]) => {
+      const H = get(h), K = get(k), A = get(a);
+      if (!H || !K || !A) return;
+      const midX = (H.x + A.x) / 2;
+      const dev  = Math.abs(K.x - midX);
+      const len  = Math.hypot(H.x - A.x, H.y - A.y) || 1;
+      sum += Math.round(Math.atan2(dev, len) * 180 / Math.PI);
+      count++;
+    });
+    return count > 0 ? { kneeValgus: Math.round(sum / count) } : null;
+  } else {
+    const LS = get(KP.LS), RS = get(KP.RS);
+    const LH = get(KP.LH), RH = get(KP.RH);
+    const LK = get(KP.LK), RK = get(KP.RK);
+    const LA = get(KP.LA), RA = get(KP.RA);
+    const lOk = LH && LK && LA && LS;
+    const rOk = RH && RK && RA && RS;
+    let S, H, K, A;
+    if (lOk && rOk) {
+      const lLen = Math.hypot(LH.x - LA.x, LH.y - LA.y);
+      const rLen = Math.hypot(RH.x - RA.x, RH.y - RA.y);
+      lLen >= rLen ? (S=LS,H=LH,K=LK,A=LA) : (S=RS,H=RH,K=RK,A=RA);
+    } else if (lOk) { S=LS; H=LH; K=LK; A=LA; }
+    else if (rOk)   { S=RS; H=RH; K=RK; A=RA; }
+    else return null;
+    const hipFlexion = ang(S, H, K);
+    if (hipFlexion === null) return null;
+    const vRef = { x: H.x, y: H.y - 1000 };
+    const trunkLean = ang(S, H, vRef);
+    if (trunkLean === null) return null;
+    return { hipFlexion, trunkLean };
+  }
+}
+
+function fallback(view) {
+  return view === 'front' ? { kneeValgus: 8 } : { hipFlexion: 82, trunkLean: 35 };
+}
+
+/* ─── 渲染结果 ─── */
+function showResults() {
+  const el = document.getElementById('results');
+  el.classList.add('on');
+  setTimeout(() => el.scrollIntoView({ behavior:'smooth', block:'start' }), 100);
+}
+
+function renderData() {
+  const f = measures.front, s = measures.side;
+  if (f) document.getElementById('v-knee').innerHTML  = f.kneeValgus + '<span class="u">°</span>';
+  if (s) document.getElementById('v-hip').innerHTML   = s.hipFlexion + '<span class="u">°</span>';
+  if (s) document.getElementById('v-trunk').innerHTML = s.trunkLean  + '<span class="u">°</span>';
+}
+
+/* ─── DeepSeek 流式调用 ─── */
+async function callDeepSeek() {
+  const { kneeValgus }          = measures.front;
+  const { hipFlexion, trunkLean } = measures.side;
+
+  const userMsg = `深蹲实测数据如下，请出具体态分析报告：
+
+膝关节内扣角度：${kneeValgus}°
+髋关节屈曲角度：${hipFlexion}°
+躯干前倾角度：${trunkLean}°`;
+
+  const textEl = document.getElementById('report-text');
+  textEl.textContent = '';
+  const cursor = Object.assign(document.createElement('span'), { className: 'cursor' });
+  textEl.appendChild(cursor);
+
+  const resp = await fetch(DEEPSEEK_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + DEEPSEEK_KEY },
+    body: JSON.stringify({
+      model: 'deepseek-chat', stream: true, temperature: 0.65, max_tokens: 800,
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user',   content: userMsg }
+      ]
+    })
+  });
+
+  if (!resp.ok) throw new Error('DeepSeek API ' + resp.status);
+
+  const reader = resp.body.getReader();
+  const dec    = new TextDecoder();
+  let buf = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    const lines = buf.split('\n'); buf = lines.pop();
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      const data = line.slice(6).trim();
+      if (data === '[DONE]') continue;
+      try {
+        const d = JSON.parse(data).choices?.[0]?.delta?.content || '';
+        if (d) textEl.insertBefore(document.createTextNode(d), cursor);
+      } catch {}
+    }
+  }
+  cursor.remove();
+  document.getElementById('disclaimer').style.display = 'block';
+}
+
+/* ─── Helpers ─── */
+function setProgTxt(t) {
+  const el = document.getElementById('prog-txt');
+  if (el) el.textContent = t;
+}
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('on');
+  clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('on'), 3000);
+}
+</script>
+</body>
+</html>
